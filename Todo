@@ -1,4 +1,9 @@
-wrap should be made optional and/or passed a screen size for the times where
+
+#filter chaining
+
+#tree substitution
+
+#wrap should be made optional and/or passed a screen size for the times where
 	the module is used without a tty
 
 #Documentation

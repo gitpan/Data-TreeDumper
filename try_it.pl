@@ -1,3 +1,5 @@
+#! /usr/bin/perl
+
 use strict ;
 use warnings ;
 use Carp ;
@@ -90,7 +92,7 @@ my $tree = shift ;
 
 if('HASH' eq ref $tree)
 	{
-	return( 'HASH', sort grep {!/^A/} keys %$tree) ;
+	return( 'HASH', undef, sort grep {!/^A/} keys %$tree) ;
 	}
 	
 return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
@@ -100,8 +102,8 @@ return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 my $tree_dumper = new Data::TreeDumper;
 #~ $tree_dumper->UseAnsi(1) ;
 #~ $tree_dumper->UseAscii(0) ;
-#~ $tree_dumper->Indent(0) ;
-#~ $tree_dumper->Maxdepth(2) ;
+#~ $tree_dumper->SetMaxDepth(2) ;
 
 print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", FILTER => \&Data::TreeDumper::HashKeysSorter) ;
 #~ print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", INDENTATION => '  ') ;
+

@@ -17,3 +17,11 @@ Revision history for Perl extension Data::TreeDumper.
 	FIXED: proper adressing
 	CHANGED: variable names to match Data:Dumper
 	ADDED: documentation
+	
+0.08  Fri Oct 10 18:00:00 2003
+	CHANGED: OO interface
+	FIXED: fixed redirection bug
+	ADDED: added virtual width
+	ADDED: filter chaining
+	ADDED: completed the filter section in the documentation
+	ADDED: filtering example

@@ -1,3 +1,5 @@
+#! /usr/bin/perl
+
 use strict ;
 use warnings ;
 use Carp ;
@@ -44,9 +46,10 @@ my $s = \%tree ;
 # package global setup data
 #-------------------------------------------------------------------
 
-$Data::TreeDumper::Useascii = 0 ;
-$Data::TreeDumper::Maxdepth = 2 ;
-$Data::TreeDumper::Filter    =  \&Data::TreeDumper::HashKeysSorter ;
+$Data::TreeDumper::Useascii     = 0 ;
+$Data::TreeDumper::Maxdepth     = 2 ;
+$Data::TreeDumper::Filter       =  \&Data::TreeDumper::HashKeysSorter ;
+$Data::TreeDumper::Virtualwidth =  80 ;
 
 print Data::TreeDumper::DumpTree($s, "Using package data") ;
 print Data::TreeDumper::DumpTree($s, "Using package data with override", MAX_DEPTH => 1) ;
@@ -57,8 +60,9 @@ print Data::TreeDumper::DumpTree($s, "Using package data with override", MAX_DEP
 
 my $dumper = new Data::TreeDumper() ;
 $dumper->UseAnsi(1) ;
-$dumper->Maxdepth(2) ;
-$dumper->Filter(\&Data::TreeDumper::HashKeysSorter) ;
+$dumper->SetMaxDepth(2) ;
+$dumper->SetVirtualWidth(80) ;
+$dumper->SetFilter(\&Data::TreeDumper::HashKeysSorter) ;
 
 print $dumper->Dump($s, "Using OO interface") ;
  
@@ -70,13 +74,15 @@ print Data::TreeDumper::TreeDumper
 	(
 	  $s
 	, {
-	    FILTER      => \&Data::TreeDumper::HashKeysSorter
-	  , START_LEVEL => 0
-	  , USE_ASCII   => 1
-	  , MAX_DEPTH   => 2
-	  , TITLE       => "Using Native interface\n"
+	    FILTER        => \&Data::TreeDumper::HashKeysSorter
+	  , START_LEVEL   => 0
+	  , USE_ASCII     => 1
+	  , MAX_DEPTH     => 2
+	  , VIRTUAL_WIDTH => 80
+	  , TITLE         => "Using Native interface start level = 0\n"
 	  }
 	) ;
+	
 print Data::TreeDumper::TreeDumper
 	(
 	  $s
@@ -84,7 +90,6 @@ print Data::TreeDumper::TreeDumper
 	    FILTER      => \&Data::TreeDumper::HashKeysSorter
 	  , START_LEVEL => 1
 	  , USE_ASCII   => 1
-	  #~ , MAX_DEPTH   => 2
 	  , TITLE       => "Using Native interface\n"
 	  }
 	) ;
