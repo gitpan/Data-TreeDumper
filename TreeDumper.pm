@@ -19,7 +19,7 @@ our %EXPORT_TAGS =
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
-our $VERSION = '0.15' ;
+our $VERSION = '0.16' ;
 
 my $WIN32_CONSOLE ;
 
@@ -61,6 +61,8 @@ our $Displayperlsize     = 0 ;
 our $Displayperladdress  = 0 ;
 our $Numberlevels        = 0 ;
 our $Colorlevels         = undef ;
+our $Glyphs              = ['|  ', '|- ', '`- ', '   '] ;
+our $Quotehashkeys       = 0 ;
 
 #~ our $Deparse    = 0 ;  # not implemented 
 
@@ -83,6 +85,8 @@ return
 	, DISPLAY_PERL_ADDRESS   => $Data::TreeDumper::Displayperladdress
 	, NUMBER_LEVELS          => $Data::TreeDumper::Numberlevels
 	, COLOR_LEVELS           => $Data::TreeDumper::Colorlevels
+	, GLYPHS                 => $Data::TreeDumper::Glyphs
+	, QUOTE_HASH_KEYS        => $Data::TreeDumper::Quotehashkeys
 	
 	, __DATA_PATH            => ''
 	, __TYPE_SEPARATORS      => {
@@ -267,7 +271,16 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			{
 			$element = $tree->{$nodes_to_display[$node_index]} ;
 			$element_address = "$element" if defined $element ;
-			$element_name = $node_names[$node_index] ;
+			
+			if($setup->{QUOTE_HASH_KEYS})
+				{
+				$element_name = "'$node_names[$node_index]'" ;
+				}
+			else
+				{
+				$element_name = $node_names[$node_index] ;
+				}
+				
 			$element_id = \($tree->{$nodes_to_display[$node_index]}) ;
 			
 			last
@@ -412,7 +425,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			(
 			  $previous_level_separator
 			, $separator
-			, $subsequent_separator
+			, $subsequent_separator # used for  wrapping text
 			, $separator_size
 			) = GetSeparator
 					(
@@ -420,6 +433,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 					, $nodes_left
 					, $levels_left
 					, $setup->{START_LEVEL}
+					, $setup->{GLYPHS}
 					, $setup->{COLOR_LEVELS}
 					) ;
 					
@@ -704,6 +718,7 @@ my
 	, $is_last_in_level
 	, $levels_left
 	, $start_level
+	, $glyphs
 	, $colors # array or code ref
 	) = @_ ;
 	
@@ -735,11 +750,13 @@ for my $current_level ((1 - $start_level) .. ($level - 1))
 		
 	if($levels_left->[$current_level] == 0)
 		{
-		$previous_level_separator .= "$color_start   $color_end" ;
+		#~ $previous_level_separator .= "$color_start   $color_end" ;
+		$previous_level_separator .= "$color_start$glyphs->[3]$color_end" ;
 		}
 	else
 		{
-		$previous_level_separator .= "$color_start|  $color_end" ;
+		#~ $previous_level_separator .= "$color_start|  $color_end" ;
+		$previous_level_separator .= "$color_start$glyphs->[0]$color_end" ;
 		}
 	}
 	
@@ -766,13 +783,17 @@ if($level > 0 || $start_level)
 		
 	if($is_last_in_level == 0)
 		{
-		$separator            = "$color_start`- $color_end" ;
-		$subsequent_separator = "$color_start   $color_end" ;
+		#~ $separator            = "$color_start`- $color_end" ;
+		#~ $subsequent_separator = "$color_start   $color_end" ;
+		$separator            = "$color_start$glyphs->[2]$color_end" ;
+		$subsequent_separator = "$color_start$glyphs->[3]$color_end" ;
 		}
 	else
 		{
-		$separator            = "$color_start|- $color_end" ;
-		$subsequent_separator = "$color_start|  $color_end"  ;
+		#~ $separator            = "$color_start|- $color_end" ;
+		#~ $subsequent_separator = "$color_start|  $color_end"  ;
+		$separator            = "$color_start$glyphs->[1]$color_end" ;
+		$subsequent_separator = "$color_start$glyphs->[0]$color_end"  ;
 		}
 	}
 	
@@ -874,16 +895,18 @@ Data::TreeDumper - Dumps a data structure in a tree fashion.
     
 =head1 DESCRIPTION
 
-Data::Dumper and other modules do a great job at dumping data structure but their output sometime takes more
-brain to understand the dump than it takes to understand the data itself. When dumping big amounts of data, the output
-is overwhelming and it's difficult to see the relationship between each piece of the dumped data.
+Data::Dumper and other modules do a great job of dumping data 
+structures.  Their output, however, often takes more brain power to 
+understand than the data itself.  When dumping large amounts of data, 
+the output can be overwhelming and it can be difficult to see the 
+relationship between each piece of the dumped data.
 
-Data::TreeDumper dumps data in a trees like fashion I<hopping> for the output to be easier on the beholder's eye 
-and brain. But it might as well be the opposite!
+Data::TreeDumper also dumps data in a tree-like fashion but I<hopefully> 
+in a format more easily understood.
 
 =head2 Label
 
-Each node in the tree has a label. The label contains a type and an address . The label is displayed to
+Each node in the tree has a label. The label contains a type and an address. The label is displayed to
 the right of the entry name within square brackets. 
 
   |  |- bbbbbb = CODE(0x8139fa0) [C3]
@@ -925,7 +948,7 @@ No structure is displayed for empty hashes or arrays, The address contains the t
 =head1 Configuration and Overrides
 
 Data::TreeDumper has configuration options you can set to modify the output it
-generates. How to set the options depends on which L<Interface> you use and is explained bellow.
+generates. How to set the options depends on which L<Interface> you use and is explained below.
 The configuration options are available in all the Interfaces and are the I<Native>
 interface arguments.
 
@@ -949,21 +972,21 @@ By default, B<Data::TreeDumper> doesn't display the address of the root.
   
 =head2 DISPLAY_ADDRESS
 
-When the dumped data are not self referential, displaying the address of each node clutters the display. You can
+When the dumped data is not self-referential, displaying the address of each node clutters the display. You can
 direct B<Data::TreeDumper> to not display the node address by using:
 
   DISPLAY_ADDRESS => 0
 
 =head2 DISPLAY_OBJECT_TYPE
 
-Data::TreeDumper displays the package an object is blessed in You can
-direct B<Data::TreeDumper> to not display the package by using:
+Data::TreeDumper displays the package in which an object is blessed.  You 
+can suppress this display by using:
 
   DISPLAY_OBJECT_TYPE => 1
 
 =head2 PERL DATA 
 
-Setting one of the options bellow  will show internal perl data
+Setting one of the options below will show internal perl data:
 
   Cells: <2234> HASH(0x814F20c)
   |- A1 [H1] <204> HASH(0x824620c)
@@ -981,25 +1004,42 @@ Setting this option will show the perl-address of the dumped data.
   
 =head3 DISPLAY_PERL_SIZE
 
-Setting this option will show the memory allocated size for each element in the tree within angle brackets.
+Setting this option will show the size of the memory allocated for each element in the tree within angle brackets.
 
   DISPLAY_PERL_SIZE => 1 
 
-See also the excellent B<Devel::Size::Report> from which I Stole the idea.
+See also the excellent B<Devel::Size::Report> from which I stole the idea.
+
+=head2 QUOTE_HASH_KEYS
+
+B<QUOTE_HASH_KEYS> and its package variable B<$Data::TreeDumper::Quotehashkeys> can be set if you wish to single quote
+the hash keys. Hash keys are not quoted by default.
+
+  DumpTree(\$s, 'some data:', QUOTE_HASH_KEYS => 1) ;
+  
+  # output
+  some data:
+  `- REF(0x813da3c) [H1]
+     |- 'A' [H2]
+     |  |- 'a' [H3]
+     |  |- 'b' [H4]
+     |  |  |- 'a' = 0 [S5]
 
 =head2 NO_OUTPUT
 
-No output will be generated by Data::TreeDumper. Useful when you want to iterate through your data structures and display the data yourself
-or manipulate the data structure or do a search (see L<using filter as iterators> bellow)
+This option suppresses all output generated by Data::TreeDumper. 
+This is useful when you want to iterate through your data structures and 
+display the data yourself, manipulate the data structure, or do a search 
+(see L<using filter as iterators> below)
 
 =head2 Filters
 
-Data::TreeDumper can sort the tree nodes with a user defined sub.
+Data::TreeDumper can sort the tree nodes with a user defined subroutine.
 
   FILTER => \&ReverseSort
   FILTER => \&Data::TreeDumper::HashKeysSorter
 
-The filter sub is passed these arguments:
+The filter routine is passed these arguments:
 
 =over 2
 
@@ -1009,24 +1049,27 @@ The filter sub is passed these arguments:
 
 =item 3 - the path to the reference from the start of the dump.
 
-=item 4 - an array reference containing the keys to be displayed (see filter chaining bellow) last argument can be undefined and can then
+=item 4 - an array reference containing the keys to be displayed (see filter chaining below) last argument can be undefined and can then
 be safely ignored.
 
 =item 5 - the dumpers setup
 
 =back
 
-The filter returns the node's type, an eventual new structure (see bellow) and a list of 'keys' to display. The keys are hash keys or array indexes.
+The filter returns the node's type, an eventual new structure (see below) and a list of 'keys' to display. The keys are hash keys or array indexes.
 
 
 In Perl:
 
   ($tree_type, $replacement_tree, @nodes_to_display) = $your_filter->($tree, $level, $path, $nodes_to_display, $setup) ;
 
-Filter are not as complicated as they sound and they are very powerfull, specially when using the path argument.
-The path idea was given to me by another module writter but I forgot who. Remind me of you so I give you deserved credit.
+Filter are not as complicated as they sound and they are very powerfull, 
+especially when using the path argument.  The path idea was given to me by 
+another module writer but I forgot whom. If this writer will contact me, I 
+will give him the proper credit.
 
-Lots of examples can be found in I<filters.pl> and  I'll be glad to help if you want to develop a filter.
+Lots of examples can be found in I<filters.pl> and I'll be glad to help if 
+you want to develop a specific filter.
 
 =head3 Key removal
 
@@ -1050,8 +1093,8 @@ Entries can be removed from the display by not returning their keys.
 =head3 Label changing
 
 The label for a hash keys or an array index can be altered. This can be used to add visual information to the tree dump. Instead 
-for returning the key name, return an array reference containing the key name and the label you want to display.
-You only need to return such a reference for the entries you want to change thus a mix of scalars and array ref is acceptable.
+of returning the key name, return an array reference containing the key name and the label you want to display.
+You only need to return such a reference for the entries you want to change, thus a mix of scalars and array ref is acceptable.
 
   sub StarOnA
   {
@@ -1081,7 +1124,8 @@ You only need to return such a reference for the entries you want to change thus
 
   print DumpTree($s, "Entries matching /^a/i have '*' prepended", FILTER => \&StarOnA) ;
 
-If you use an ansi terminal, you can also change the color of the label, this can greatly improve visual search time.
+If you use an ANSI terminal, you can also change the color of the label. 
+This can greatly improve visual search time.
 See the I<label coloring> example in I<colors.pl>.
 
 =head3 Structure replacement
@@ -1152,7 +1196,7 @@ dump of a tree with seven nodes:
   |- _node = 0
   `- _parent = root
 
-This is nice for the developer but not for a user wanting to over see the node hierarchy. One of the
+This is nice for the developer but not for a user wanting to oversee the node hierarchy. One of the
 possible filters would be:
 
   FILTER => sub
@@ -1203,7 +1247,7 @@ What about counting the children nodes? The index generating code becomes:
 It is possible to chain filters. I<CreateChainingFilter> takes a list of filtering sub references.
 The filters must properly handle the third parameter passed to them.
 
-Suppose you want to chain a filter, that adds a star before each hash key label, with a filter 
+Suppose you want to chain a filter that adds a star before each hash key label, with a filter 
 that removes all (original) keys that match /^a/i.
 
   sub AddStar
@@ -1274,14 +1318,15 @@ that removes all (original) keys that match /^a/i.
 =head2 level Filters
 
 It is possible to define one filter for a specific level. If a filter for a specific level exists it is used
-instead for the global filter.
+instead of the global filter.
 
 LEVEL_FILTERS => {1 => \&FilterForLevelOne, 5 => \&FilterForLevelFive ... } ;
 
 =head2 Using filters as iterators
 
-you can iterate in your data structures and display data yoursel, manipulate the data structure or do a search.
-While iterating the data structure, you can prune the branches that present no interest to speedup the iterations
+You can iterate through your data structures and display data yourself, 
+manipulate the data structure, or do a search. While iterating through the 
+data structure, you can prune arbitrary branches to speedup processing.
 
   # this example counts the nodes in a tree (hash based)
   # a node is counted if it has a '__NAME' key
@@ -1339,8 +1384,8 @@ START_LEVEL => 0:
   
 =head2 ASCII vs ANSI
 
-You can direct Data:TreeDumper to output ANSI codes instead for ASCII characters. The display 
-will be much nicer but takes slightly longer time (not significant for small data structures).
+You can direct Data:TreeDumper to output ANSI codes instead of ASCII characters. The display 
+will be much nicer but takes slightly longer (not significant for small data structures).
 
   USE_ASCII => 0 # will use ANSI codes instead
 
@@ -1357,6 +1402,26 @@ Every line of the tree dump will be appended with the value of I<INDENTATION>.
 
   INDENTATION => '   ' ;
 
+=head1 Custom glyphs
+
+You can  change the glyphs used by B<Data::TreeDumper>.
+
+  DumpTree(\$s, 's', , GLYPHS => ['.  ', '.  ', '.  ', '.  ']) ;
+  
+  # output
+  s
+  .  REF(0x813da3c) [H1]
+  .  .  A [H2]
+  .  .  .  a [H3]
+  .  .  .  b [H4]
+  .  .  .  .  a = 0 [S5]
+  .  .  .  .  b = 1 [S6]
+  .  .  .  .  c [H7]
+  .  .  .  .  .  a = 1 [S8]
+
+Four glyphs must be given. They replace the standard glyphs ['|  ', '|- ', '`- ', '   ']. It is also possible to set
+the package variable B<$Data::TreeDumper::Glyphs>. B<USE_ASCII> should be set, which it is by default.
+
 =head1 Level numbering and tagging
 
 Data:TreeDumper can prepend the level of the current line to the tree glyphs. This can be very useful when
@@ -1367,7 +1432,7 @@ searching in tree dump either visually or with a pager.
 
 NUMBER_LEVELS can be assigned a number or a sub reference. When assigned a number, Data::TreeDumper will use that value to 
 define the width of the field where the level is displayed. For more control, you can define a sub that returns a string to be displayed
-on the left side of the tree glyphs. The example bellow tags all the nodes which level is zero.
+on the left side of the tree glyphs. The example below tags all the nodes whose level is zero.
 
   print DumpTree($s, "Level numbering", NUMBER_LEVELS => 2) ;
 
@@ -1437,7 +1502,7 @@ wrapped multiple times so they snuggly fit your screen.
 
 =head1 Custom Rendering
 
-B<Data::TreeDumper> had a plug-in interface for other rendering format. The renderer callbacks are
+B<Data::TreeDumper> has a plug-in interface for other rendering formats. The renderer callbacks are
 set by overriding the native renderer. Thanks to Stevan Little author of Tree::Simple::View for getting
 B<Data::TreeDumper> on this track.
 
@@ -1475,13 +1540,13 @@ passed to the callback
 =item 2 $level
 
 
-=item 3 $is_terminal whether a deeper structure will follow or not
+=item 3 $is_terminal (whether a deeper structure will follow or not)
 
 
-=item 4 $previous_level_separator ASCII separators before this node
+=item 4 $previous_level_separator (ASCII separators before this node)
 
 
-=item 5 $separator ASCII separator for this element
+=item 5 $separator (ASCII separator for this element)
 
 
 =item 6 $element_name
@@ -1490,16 +1555,16 @@ passed to the callback
 =item 7 $element_value
 
 
-=item 8 $dtd_address address of the element. Ex: C12 or H34. Unique for each element
+=item 8 $dtd_address (address of the element, Ex: C12 or H34. Unique for each element)
 
 
-=item 9 $address_field address and link displayed by the native renderer
+=item 9 $address_field (address and link displayed by the native renderer)
 
 
-=item 10 $perl_data perl size and/or address if the dumper was set too generate them
+=item 10 $perl_data (perl size and/or address if the dumper was set too generate them)
 
 
-=item 11 $setup the dumper's settings
+=item 11 $setup (the dumper's settings)
 
 
 =back
@@ -1513,19 +1578,20 @@ passed to the callback
 =head2 Renderer modules
 
 Renderers should be defined in modules under B<Data::TreeDumper::Renderer> and should define a function
-called I<GetRenderer>. I<GetRenderer> can be passed whatever arguments the renderer's developer whishes. It is also
+called I<GetRenderer>. I<GetRenderer> can be passed whatever arguments the developer whishes. It is
 acceptable for the modules to also export a specifc sub.
 
   print DumpTree($s, 'Tree', Data::TreeDumper::Renderer::DHTML::GetRenderer()) ;
   or
   print DumpTree($s, 'Tree', GetDhtmlRenderer()) ;
 
-if B<{RENDERER}> is set  to a scalar, B<Data::TreeDumper> will load the specified module if it exists. I<GetRenderer>
-will be called without arguments.
+If B<{RENDERER}> is set to a scalar, B<Data::TreeDumper> will load the 
+specified module if it exists. I<GetRenderer> will be called without 
+arguments.
 
   print DumpTree($s, 'Tree', RENDERER => 'DHTML') ;
 
-if B<{RENDERER}{NAME}> is set  to a scalar, B<Data::TreeDumper> will load the specified module if it exists. I<GetRenderer>
+If B<{RENDERER}{NAME}> is set to a scalar, B<Data::TreeDumper> will load the specified module if it exists. I<GetRenderer>
 will be called without arguments. Arguments to the renderer can aither be passed to the GetRenderer sub or as elements in the {RENDERER} hash.
 
   print DumpTree($s, 'Tree', RENDERER => {NAME => 'DHTML', STYLE => \$style) ;
@@ -1554,6 +1620,8 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 
 =item * FILTER 
 
+=item * GLYPHS
+
 =item * INDENTATION
 
 =item * LEVEL_FILTERS
@@ -1561,6 +1629,8 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 =item * MAX_DEPTH 
 
 =item * NUMBER_LEVELS 
+
+=item * QUOTE_HASH_KEYS
 
 =item * START_LEVEL 
 
@@ -1591,12 +1661,14 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
   $Data::TreeDumper::Filter               = \&FlipEverySecondOne ;
   $Data::TreeDumper::Levelfilters         = {1 => \&Filter_1, 5 => \&Filter_5} ;
   $Data::TreeDumper::Numberlevels         = 0 ;
+  $Data::TreeDumper::Glyphs               = ['|  ', '|- ', '`- ', '   '] ; 
   $Data::TreeDumper::Colorlevels          = undef ;
   $Data::TreeDumper::Nooutput             = 0 ; # generate an output
-  
+  $Data::TreeDumper::Quotehashkeys        = 0 ;
+
 =head3 API
 
-B<DumpTree> uses the configuration variables defined above. It takes the following arguments
+B<DumpTree> uses the configuration variables defined above. It takes the following arguments:
 
 =over 2
 
@@ -1640,7 +1712,8 @@ B<DumpTrees> uses the configuration variables defined above. It takes the follow
 
 =head1 Bugs
 
-None I know of in this release but plenty, lurking in the dark corners, waiting to be found.
+None that I know of in this release but plenty, lurking in the dark 
+corners, waiting to be found.
 
 =head1 Examples
 

@@ -1,5 +1,10 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.16  xxxx Sat July xxx 19:30:00 2004
+	CHANGED: documentation was checked by Aaron Dalton
+	ADDED: GLYPHS override
+	ADDED: QUOTE_HASH_KEYS override
+
 0.15  Sat Jun 26 19:30:00 2004
 	ADDED: more flexible way to name the renderer
 
