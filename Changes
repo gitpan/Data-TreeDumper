@@ -42,3 +42,7 @@ Revision history for Perl extension Data::TreeDumper.
 	ADDED: level coloring
 	ADDED: coloring examples in colors.pl
 	RUN: aspell
+	
+0.11  Wedt Dec 10 22:00:00 2003
+	CHANGED: documentation about label
+	ADDED: DumpTrees and DumpMany

@@ -18,8 +18,8 @@ our %EXPORT_TAGS =
 
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
-our @EXPORT = qw(DumpTree CreateChainingFilter);
-our $VERSION = '0.10' ;
+our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
+our $VERSION = '0.11' ;
 
 use Term::Size;
 use Text::Wrap  ;
@@ -70,6 +70,23 @@ return
 			  }
 			)
 	) ;
+}
+
+sub DumpTrees
+{
+my @trees           = grep {'ARRAY' eq ref $_} @_ ;
+my %global_override = grep {'ARRAY' ne ref $_} @_ ;
+
+my $dump = '' ;
+
+for my $tree (@trees)
+	{
+	my ($structure_to_dump, $title, %override) = @{$tree} ;
+	
+	$dump .= DumpTree($structure_to_dump, $title, %global_override, %override) ;
+	}
+	
+return($dump) ;
 }
 
 #----------------------------------------------------------------------
@@ -194,6 +211,25 @@ return
 			  }
 			)
 	) ;
+}
+
+sub DumpMany
+{
+my $self = shift ;
+
+my @trees           = grep {'ARRAY' eq ref $_} @_ ;
+my %global_override = grep {'ARRAY' ne ref $_} @_ ;
+
+my $dump = '' ;
+
+for my $tree (@trees)
+	{
+	my ($structure_to_dump, $title, %override) = @{$tree} ;
+	
+	$dump .= $self->Dump($structure_to_dump, $title, %global_override, %override) ;
+	}
+
+return($dump) ;
 }
 
 #-------------------------------------------------------------------------------
@@ -884,6 +920,13 @@ Data::TreeDumper - dumps a data structure in a tree fashion.
   
   print DumpTree($s, 'title') ;
   print DumpTree($s, 'title', MAX_DEPTH => 1) ;
+  print DumpTrees
+	  (
+	    [$s, "title", MAX_DEPTH => 1]
+	  , [$s2, "other_title", DISPLAY_ADDRESS => 0]
+	  , USE_ASCII => 1
+	  , MAX_DEPTH => 5
+	  ) ;
   
   #-------------------------------------------------------------------
   # OO interface
@@ -895,6 +938,13 @@ Data::TreeDumper - dumps a data structure in a tree fashion.
   $dumper->Filter(\&Data::TreeDumper::HashKeysSorter) ;
   
   print $dumper->Dump($s, "Using OO interface") ;
+  print $dumper->DumpMany
+	  (
+	    [$s, "title", MAX_DEPTH => 1]
+	  , [$s2, "other_title", DISPLAY_ADDRESS => 0]
+	  , USE_ASCII => 1
+	  , MAX_DEPTH => 5
+	  ) ;
    
   #-------------------------------------------------------------------
   # native interface
@@ -941,18 +991,29 @@ is overwhelming and it's difficult to see the relationship between each piece of
 Data::TreeDumper dumps data in a trees like fashion I<hopping> for the output to be easier on the beholder's eye 
 and brain. But it might as well be the opposite!
 
-=head2 Address
+=head2 Label
 
-Each node in the tree has a type (see L<Types> bellow) and an address associated with it. The type and address are displayed to
-the right of the entry name within square brackets. The addresses are linearly incremented which should make it easier to locate data.
-If the entry is a reference to data already displayed, a B<->> is prepended to the entry's address.
+Each node in the tree has a label. The label contains a type and an address . The label is displayed to
+the right of the entry name within square brackets. 
 
   |  |- bbbbbb = CODE(0x8139fa0) [C3]
   |  |- c123 [C4 -> C3]
   |  `- d [R5]
   |     `- REF(0x8139fb8) [R5 -> C3]
-  
-=head2 Types
+
+=head3 Address
+
+The addresses are linearly incremented which should make it easier to locate data.
+If the entry is a reference to data already displayed, a B<->> followed with the address of the already displayed data is appended
+within the label.
+
+  ex: c123 [C4 -> C3]
+             ^     ^ 
+             |     | address of the data refered to
+             |
+             | current address
+
+=head3 Types
 
 B<H>: Hash,
 B<C>: Code,
@@ -1297,6 +1358,32 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 
 	VIRTUAL_WIDTH => 120 ;
 
+=head1 OVERRIDE list
+
+=over 2
+
+=item * COLOR_LEVELS
+
+=item * DISPLAY_ADDRESS 
+
+=item * DISPLAY_ROOT_ADDRESS 
+
+=item * FILTER 
+
+=item * INDENTATION 
+
+=item * MAX_DEPTH 
+
+=item * NUMBER_LEVELS 
+
+=item * START_LEVEL 
+
+=item * USE_ASCII 
+
+=item * VIRTUAL_WIDTH 
+
+=back
+
 =head1 Interfaces
 
 Data:TreeDumper has three interfaces. A 'package data' interface resembling Data::Dumper, an
@@ -1317,7 +1404,7 @@ object oriented interface and the native interface. All interfaces return a stri
   $Data:TreeDumper::Numberlevels       = 0 ;
   $Data:TreeDumper::Colorlevels        = undef ;
   
-=head3 Function
+=head3 Functions
 
 B<DumpTree> uses the configuration variables defined above. It takes the following arguments
 
@@ -1325,13 +1412,41 @@ B<DumpTree> uses the configuration variables defined above. It takes the followi
 
 =item [1] structure_to_dump, this must be a reference
 
-=item [2] title, a string to prepended to the tree
+=item [2] title, a string to prepended to the tree (optional)
 
-=item [3] overrides
+=item [3] overrides (optional)
 	
 =back
 
   print DumpTree($s, "title", MAX_DEPTH => 1) ;
+
+B<DumpTrees> uses the configuration variables defined above. It takes the following arguments
+
+=over 2
+
+=item [1] One or more array references containing
+
+=over 4
+
+=item [a] structure_to_dump, this must be a reference
+
+=item [b] title, a string to prepended to the tree (optional)
+
+=item [c] overrides (optional)
+	
+=back
+
+=item [2] overrides (optional)
+
+=back
+
+  print DumpTrees
+	  (
+	    [$s, "title", MAX_DEPTH => 1]
+	  , [$s2, "other_title", DISPLAY_ADDRESS => 0]
+	  , USE_ASCII => 1
+	  , MAX_DEPTH => 5
+	  ) ;
 
 =head2 Object oriented Methods
 
@@ -1351,6 +1466,12 @@ B<DumpTree> uses the configuration variables defined above. It takes the followi
   $dumper->ColorLevels(\&ColorLevelSub) ;
   
   $dumper->Dump($s, "Using OO interface", %OVERRIDES) ;
+  $dumper->DumpMany
+            (
+	      [$s, "dump1", %OVERRIDES]
+	    , [$s, "dump2", %OVERRIDES]
+	    , %OVERRIDES
+	    ) ;
   	
 =head2 Native
 
@@ -1389,7 +1510,7 @@ I<try_it.pl> is meant as a scratch pad for you to try B<Data::TreeDumper>.
 
 =head1 EXPORT
 
-I<DumpTree> and  I<CreateChainingFilter>.
+I<DumpTree>, I<DumpTrees> and  I<CreateChainingFilter>.
 
 =head1 AUTHOR
 

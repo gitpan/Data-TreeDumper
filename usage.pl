@@ -79,7 +79,7 @@ print Data::TreeDumper::TreeDumper
 	  , USE_ASCII     => 1
 	  , MAX_DEPTH     => 2
 	  , VIRTUAL_WIDTH => 80
-	  , TITLE         => "Using Native interface start level = 0\n"
+	  , TITLE         => "Using Native interface start level = 0"
 	  }
 	) ;
 	
@@ -90,6 +90,20 @@ print Data::TreeDumper::TreeDumper
 	    FILTER      => \&Data::TreeDumper::HashKeysSorter
 	  , START_LEVEL => 1
 	  , USE_ASCII   => 1
-	  , TITLE       => "Using Native interface\n"
+	  , TITLE       => "Using Native interface"
 	  }
 	) ;
+
+#~ print DumpTrees
+	#~ (
+	  #~ [$s, "Using package data", MAX_DEPTH => 1]
+	#~ , [$s, "Using package data", MAX_DEPTH => 2]
+	#~ , USE_ASCII => 1
+	#~ ) ;
+
+#~ print $dumper->DumpMany
+	#~ (
+	  #~ [$s, "Using package data", MAX_DEPTH => 1]
+	#~ , [$s, "Using package data", MAX_DEPTH => 2]
+	#~ , USE_ASCII => 1
+	#~ ) ;

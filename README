@@ -1,15 +1,14 @@
-Data/TreeDumper version 0.10
+Data/TreeDumper version 0.11
 ============================
 
-Version 0.10
+Version 0.11
 
 Data::TreeDumper dumps a data structure in tree fasion. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-- Fixed a little but very ennoying bug that added a spurious "\n"
-- Added support for level numbering/tagging and coloring
-- New examples
+- better documentation of labels
+- functions DumpTrees and DumpMany
 
 Ex:
 
