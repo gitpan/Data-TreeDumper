@@ -1,0 +1,12 @@
+wrap should be made optional and/or passed a screen size for the times where
+	the module is used without a tty
+
+#Documentation
+
+#? pass the title of the data structure as an argument
+
+#? pass indentation to TreeDumper
+
+#? Pass override args to DumpTree
+
+#export sub names

@@ -1,0 +1,19 @@
+Revision history for Perl extension Data::TreeDumper.
+
+0.01  Fri Jun 13 00:40:58 2003
+	- original version; created by h2xs 1.21 with options
+		-X -n Data::TreeDumper
+
+0.05  Fri Jun 13 01:15:00 2003
+	CHANGED: Merged the version from PerlBuildSystem module
+	
+0.06  Mon Jun 30 01:30:00 2003
+	CHANGED: pass the title of the data structure as an argument
+	CHANGED: pass indentation to TreeDumper
+	CHANGED: Pass override args to DumpTree
+	CHANGED: export TreeDumper sub name
+
+0.07  Fri Oct 3 23:30:00 2003
+	FIXED: proper adressing
+	CHANGED: variable names to match Data:Dumper
+	ADDED: documentation
