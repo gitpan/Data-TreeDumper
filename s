@@ -36,8 +36,14 @@ $s = {
     'element_3',
     [1, 2],
     {a => 1, b => 2}
-  ]
+  ],
+  'STRING_WITH_EMBEDED_NEW_LINE' => "line1\nline2\nline3\nlong line4 lkjdfljkdjfklsdfkldjflkjdkfjksldfjldjfklsdjfkljdklfjksljfkldsjfkldsjklfjlfjlsdjflsjfklsjdfldjkslfjklsdfj\nline5",
 };
+
+my $scalar = "hi" ;
+$s->{SCALAR} = $scalar ;
+$s->{SCALAR_REF} = \$scalar ;
+$s->{SCALAR_REF2} = \$scalar ;
 ${$s->{'A'}{'code3'}} = $s->{'A'}{'code1'};
 $s->{'A'}{'code2'} = $s->{'A'}{'code1'};
 $s->{'CopyOfARRAY'} = $s->{'ARRAY'};

@@ -1,16 +1,16 @@
 Data/TreeDumper version
 ========================
 
-Version 0.18
+Version 0.19
 
 Data::TreeDumper dumps any data structure. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-	FIXED: '= ' was missing when the scalara was eq ''
-	ADDED: QUOTE_VALUES
-	FIXED: handles blessed scalar references
-	FIXED: NO_OUTPUT still displayed the title
+	FIXED: object display was incorrect after "Renderer" modification
+	ADDED: display that an array or a hash doesn't have any elemnts
+	ADDED: quick _hack_ for replacing \n with a string to avoid garbaging the output
+	FIXED: removed garbage scalars links. scalars can't link anywhere, gave them a unique address
 	
 Ex:
 my $tree = { ... } ;

@@ -1,5 +1,11 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.19 Wed Dec 1 00:01:00 2004
+	FIXED: object display was incorrect after "Renderer" modification
+	ADDED: display that an array or a hash doesn't have any elemnts
+	ADDED: quick _hack_ for replacing \n with a string to avoid garbaging the output
+	FIXED: garbage scalars links. scalars can't link anywhere, gave them a unique address
+
 0.18  
 	FIXED: '= ' was missing when the scalara was eq ''
 	ADDED: QUOTE_VALUES

@@ -5,6 +5,7 @@ use warnings ;
 use Carp ;
 
 use Data::TreeDumper ;
+use Data::TreeDumper::OO ;
 
 my $sub = sub {} ;
 
@@ -99,10 +100,11 @@ return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 }
 
 
-my $tree_dumper = new Data::TreeDumper;
+my $tree_dumper = new Data::TreeDumper::OO ;
 #~ $tree_dumper->UseAnsi(1) ;
 #~ $tree_dumper->UseAscii(0) ;
 #~ $tree_dumper->SetMaxDepth(2) ;
 
-print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", DISPLAY_ROOT_ADDRESS => 1) ;
+print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:",  DISPLAY_ROOT_ADDRESS => 1) ;
+
 #~ print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", INDENTATION => '  ', FILTER => \&Data::TreeDumper::HashKeysSorter) ;
