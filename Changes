@@ -1,5 +1,8 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.15  Sat Jun 26 19:30:00 2004
+	ADDED: more flexible way to name the renderer
+
 0.14  Sat Jun 26 19:30:00 2004
         CHANGED: the documentation slightly
 	ADDED: DISPLAY_OBJECT_TYPE

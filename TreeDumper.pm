@@ -19,7 +19,7 @@ our %EXPORT_TAGS =
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
-our $VERSION = '0.14' ;
+our $VERSION = '0.15' ;
 
 my $WIN32_CONSOLE ;
 
@@ -217,6 +217,16 @@ EOE
 		die "Data::TreeDumper couldn't load renderer '$setup->{RENDERER}':\n$@" if $@ ;
 		}
 	
+	if(defined $setup->{RENDERER}{NAME})
+		{
+		eval <<EOE ;
+		use Data::TreeDumper::Renderer::$setup->{RENDERER}{NAME} ;
+		\$setup->{RENDERER} = {%{\$setup->{RENDERER}}, %{Data::TreeDumper::Renderer::$setup->{RENDERER}{NAME}::GetRenderer()}} ;
+EOE
+		
+		die "Data::TreeDumper couldn't load renderer '$setup->{RENDERER}{NAME}':\n$@" if $@ ;
+		}
+		
 	if(defined $setup->{RENDERER}{BEGIN})
 		{
 		$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE}, '[' . GetReferenceType($tree) . "0]", $tree, $setup) ;
@@ -782,7 +792,7 @@ return
 __END__
 =head1 NAME
 
-Data::TreeDumper - dumps a data structure in a tree fashion.
+Data::TreeDumper - Dumps a data structure in a tree fashion.
 
 =head1 SYNOPSIS
 
@@ -944,7 +954,7 @@ direct B<Data::TreeDumper> to not display the node address by using:
 
   DISPLAY_ADDRESS => 0
 
-=head2 DISPLAY_ADDRESS
+=head2 DISPLAY_OBJECT_TYPE
 
 Data::TreeDumper displays the package an object is blessed in You can
 direct B<Data::TreeDumper> to not display the package by using:
@@ -1097,7 +1107,7 @@ version of the structure. You can even change the type of the data structure, fo
 
   print DumpTree($s, 'replace arrays with hashes!', FILTER => \&ReplaceArray) ;
 
-Here is a real life replacement. B<Tree::Simple> <http://search.cpan.org/dist/Tree-Simple/> allows one
+Here is a real life replacement. B<Tree::Simple> L<http://search.cpan.org/dist/Tree-Simple/> allows one
 to build tree structures. The child nodes are not directly in the parent object (hash). Here is an unfiltered
 dump of a tree with seven nodes:
 
@@ -1510,10 +1520,16 @@ acceptable for the modules to also export a specifc sub.
   or
   print DumpTree($s, 'Tree', GetDhtmlRenderer()) ;
 
-if B<RENDERER> is set  to a scalar, B<Data::TreeDumper> will load the specified module if it exists. I<GetRenderer>
+if B<{RENDERER}> is set  to a scalar, B<Data::TreeDumper> will load the specified module if it exists. I<GetRenderer>
 will be called without arguments.
 
   print DumpTree($s, 'Tree', RENDERER => 'DHTML') ;
+
+if B<{RENDERER}{NAME}> is set  to a scalar, B<Data::TreeDumper> will load the specified module if it exists. I<GetRenderer>
+will be called without arguments. Arguments to the renderer can aither be passed to the GetRenderer sub or as elements in the {RENDERER} hash.
+
+  print DumpTree($s, 'Tree', RENDERER => {NAME => 'DHTML', STYLE => \$style) ;
+
 
 =head1 Zero width console
 
