@@ -19,25 +19,28 @@ our %EXPORT_TAGS =
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
-our $VERSION = '0.11' ;
+our $VERSION = '0.12' ;
 
 use Term::Size;
 use Text::Wrap  ;
 
 #----------------------------------------------------------------------
-# package variables à la Data::Dumper
+# package variables à la Data::Dumper (as is the silly  naming scheme)
 #----------------------------------------------------------------------
 
-our $Startlevel         = 1 ;
-our $Useascii           = 1 ;
-our $Maxdepth           = -1 ;
-our $Indentation        = '' ;
-our $Filter             = undef ;
-our $Virtualwidth       = 120 ; 
-our $Displayrootaddress = 0 ;
-our $Displayaddress     = 1 ;
-our $Numberlevels       = 0 ;
-our $Colorlevels        = undef ;
+our $Startlevel          = 1 ;
+our $Useascii            = 1 ;
+our $Maxdepth            = -1 ;
+our $Indentation         = '' ;
+our $Filter              = undef ;
+our $Levelfilters        = undef ;
+our $Virtualwidth        = 120 ; 
+our $Displayrootaddress  = 0 ;
+our $Displayaddress      = 1 ;
+our $Displayperlsize     = 0 ;
+our $Displayperladdress  = 0 ;
+our $Numberlevels        = 0 ;
+our $Colorlevels         = undef ;
 
 #~ our $Deparse    = 0 ;  # not implemented 
 
@@ -55,17 +58,20 @@ return
 			(
 			  $structure_to_dump
 			, {
-			    FILTER               => $Filter
-			  , START_LEVEL          => $Startlevel
-			  , USE_ASCII            => $Useascii
-			  , MAX_DEPTH            => $Maxdepth
-			  , INDENTATION          => $Indentation
-			  , TITLE                => $title
-			  , VIRTUAL_WIDTH        => $Virtualwidth
-			  , DISPLAY_ROOT_ADDRESS => $Displayrootaddress
-			  , DISPLAY_ADDRESS      => $Displayaddress
-			  , NUMBER_LEVELS        => $Numberlevels
-			  , COLOR_LEVELS         => $Colorlevels
+			    FILTER                 => $Filter
+			  , LEVEL_FILTERS          => $Levelfilters
+			  , START_LEVEL            => $Startlevel
+			  , USE_ASCII              => $Useascii
+			  , MAX_DEPTH              => $Maxdepth
+			  , INDENTATION            => $Indentation
+			  , TITLE                  => $title
+			  , VIRTUAL_WIDTH          => $Virtualwidth
+			  , DISPLAY_ROOT_ADDRESS   => $Displayrootaddress
+			  , DISPLAY_ADDRESS        => $Displayaddress
+			  , DISPLAY_PERL_SIZE      => $Displayperlsize
+			  , DISPLAY_PERL_ADDRESS   => $Displayperladdress
+			  , NUMBER_LEVELS          => $Numberlevels
+			  , COLOR_LEVELS           => $Colorlevels
 			  , %override
 			  }
 			)
@@ -99,16 +105,19 @@ my($class, @setup_data) = @_;
 
 my($self) = 
 	{
-	  FILTER               => undef
-	, START_LEVEL          => 1
-	, USE_ASCII            => 1
-	, MAX_DEPTH            => -1
-	, INDENTATION          => '' 
-	, VIRTUAL_WIDTH        => 120
-	, DISPLAY_ROOT_ADDRESS => 0
-	, DISPLAY_ADDRESS      => 1
-	, NUMBER_LEVELS        => undef
-	, COLOR_LEVELS         => undef
+	  FILTER                 => undef
+	, LEVEL_FILTERS          => undef
+	, START_LEVEL            => 1
+	, USE_ASCII              => 1
+	, MAX_DEPTH              => -1
+	, INDENTATION            => '' 
+	, VIRTUAL_WIDTH          => 120
+	, DISPLAY_ROOT_ADDRESS   => 0
+	, DISPLAY_ADDRESS        => 1
+	, DISPLAY_PERL_SIZE      => 0
+	, DISPLAY_PERL_ADDRESS   => 0
+	, NUMBER_LEVELS          => undef
+	, COLOR_LEVELS           => undef
 	, @setup_data
 	};
 
@@ -121,7 +130,16 @@ my($self, $filter) = @_;
 
 croak "Filter must be a code reference!" unless ('CODE' eq ref $filter) ;
 
-$self->{FILTER} = $filter;
+$self->{FILTER} = $filter ;
+}
+
+sub SetLevelFilters
+{
+my($self, $filters) = @_;
+
+croak "Filter must be an array reference!" unless ('ARRAY' eq ref $filters) ;
+
+$self->{LEVEL_FILTERS} = $filters ;
 }
 
 sub SetStartLevel
@@ -172,6 +190,18 @@ my($self, $display_address) = @_ ;
 $self->{DISPLAY_ADDRESS} = $display_address ;
 }
 
+sub DisplayPerlSize
+{
+my($self, $display_perl_size) = @_ ;
+$self->{DISPLAY_PERL_SIZE} = $display_perl_size;
+}
+
+sub DisplayPerlAddress
+{
+my($self, $display_perl_address) = @_ ;
+$self->{DISPLAY_PERL_ADDRESS} = $display_perl_address ;
+}
+
 sub NumberLevels
 {
 my($self, $number_levels) = @_ ;
@@ -196,17 +226,20 @@ return
 			(
 			  $structure_to_dump
 			, {
-			    FILTER               => $self->{FILTER}
-			  , START_LEVEL          => $self->{START_LEVEL}
-			  , USE_ASCII            => $self->{USE_ASCII}
-			  , MAX_DEPTH            => $self->{MAX_DEPTH}
-			  , INDENTATION          => $self->{INDENTATION}
-			  , VIRTUAL_WIDTH        => $self->{VIRTUAL_WIDTH}
-			  , DISPLAY_ROOT_ADDRESS => $self->{DISPLAY_ROOT_ADDRESS}
-			  , DISPLAY_ADDRESS      => $self->{DISPLAY_ADDRESS}
-			  , NUMBER_LEVELS        => $self->{NUMBER_LEVELS}
-			  , COLOR_LEVELS         => $self->{COLOR_LEVELS}
-			  , TITLE                => $title
+			    FILTER                 => $self->{FILTER}
+			  , LEVEL_FILTERS          => $self->{LEVEL_FILTERS}
+			  , START_LEVEL            => $self->{START_LEVEL}
+			  , USE_ASCII              => $self->{USE_ASCII}
+			  , MAX_DEPTH              => $self->{MAX_DEPTH}
+			  , INDENTATION            => $self->{INDENTATION}
+			  , VIRTUAL_WIDTH          => $self->{VIRTUAL_WIDTH}
+			  , DISPLAY_ADDRESS        => $self->{DISPLAY_ADDRESS}
+			  , DISPLAY_ROOT_ADDRESS   => $self->{DISPLAY_ROOT_ADDRESS}
+			  , DISPLAY_PERL_ADDRESS   => $self->{DISPLAY_PERL_ADDRESS}
+			  , DISPLAY_PERL_SIZE      => $self->{DISPLAY_PERL_SIZE}
+			  , NUMBER_LEVELS          => $self->{NUMBER_LEVELS}
+			  , COLOR_LEVELS           => $self->{COLOR_LEVELS}
+			  , TITLE                  => $title
 			  , %override
 			  }
 			)
@@ -257,31 +290,57 @@ my $display_root_address = $setup->{DISPLAY_ROOT_ADDRESS} ;
 my $display_address      = $setup->{DISPLAY_ADDRESS} ;
 my $number_levels        = $setup->{NUMBER_LEVELS} ;
 my $color_levels         = $setup->{COLOR_LEVELS} ;
+my $level_filters        = $setup->{LEVEL_FILTERS} ;
 
 $start_level = 0   unless defined $start_level ;
 $use_ascii   = 1   unless defined $use_ascii ;
 $max_depth   = -1  unless defined $max_depth ;
 $indentation = ''  unless defined $indentation ;
 $virtual_width = 120 unless defined $virtual_width ;
-$display_root_address = 0 unless defined $display_root_address ;
 $display_address = 1 unless defined $display_address ;
 
 return('') if ($max_depth == $level) ;
 
-# used in the recursive call
+# perl data size
+unless(exists $setup->{DISPLAY_PERL_SIZE_MODULE_CHECKED})
+	{
+	$setup->{DISPLAY_PERL_SIZE_MODULE_CHECKED}++ ;
+	
+	eval 'use Devel::Size qw(size total_size) ;' ;
+
+	if($@)
+		{
+		delete $setup->{DISPLAY_PERL_SIZE} ;
+		}
+	}
+	
+local $Devel::Size::warn = 0 ;
+
+# remember what we have displayed, used in the recursive call
 my $already_displayed_nodes = shift || {$tree => GetReferenceType($tree) . '0', NEXT_INDEX => 1} ;
 
+$setup->{DATA_PATH} = '' unless(defined $setup->{DATA_PATH}) ;
+	
 # filters
 my ($replacement_tree, $nodes_to_display) ;
 
-if(defined $filter_sub)
+
+if(defined $level_filters && exists $level_filters->{$level})
 	{
-	($tree_type, $replacement_tree, @$nodes_to_display) = $filter_sub->($tree, $level, $nodes_to_display, $setup) ;
+	($tree_type, $replacement_tree, @$nodes_to_display) = $level_filters->{$level}->($tree, $level, $setup->{DATA_PATH}, $nodes_to_display, $setup) ;
 	$tree = $replacement_tree if(defined $replacement_tree) ;
 	}
 else
 	{
-	($tree_type, undef, @$nodes_to_display) = DefaultNodesToDisplay($tree, $level) ;
+	if(defined $filter_sub)
+		{
+		($tree_type, $replacement_tree, @$nodes_to_display) = $filter_sub->($tree, $level, $setup->{DATA_PATH}, $nodes_to_display, $setup) ;
+		$tree = $replacement_tree if(defined $replacement_tree) ;
+		}
+	else
+		{
+		($tree_type, undef, @$nodes_to_display) = DefaultNodesToDisplay($tree, $level) ;
+		}
 	}
 	
 return('') unless defined $tree_type ;
@@ -312,6 +371,12 @@ local $Text::Wrap::columns  = $columns ;
 local $Text::Wrap::unexpand = 0 ;
 
 my $output = '' ;
+
+# data path
+my ($opening_bracket, $closing_bracket) = GetTypeBrackets($tree_type) ;
+
+local $setup->{DATA_PATH} = $setup->{DATA_PATH} . $opening_bracket ;
+
 for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 	{
 	my 
@@ -333,11 +398,14 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 	
 	my $node_index = $#nodes_to_display - $nodes_left ;
 	
+	my $perl_data = '' ;
+		
 	my ($element, $element_name, $element_ref) ;
 	for($tree_type)
 		{
 		'HASH' eq $_ and do
 			{
+			$perl_data  .= " <" . total_size($tree->{$nodes_to_display[$node_index]}) . ">" if($setup->{DISPLAY_PERL_SIZE}) ;
 			$element = $tree->{$nodes_to_display[$node_index]} ;
 			$element_name = $node_names[$node_index] ;
 			$element_ref = \($tree->{$nodes_to_display[$node_index]}) ;
@@ -346,6 +414,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 		
 		'ARRAY' eq $_ and do
 			{
+			$perl_data  .= " <" . total_size($tree->[$nodes_to_display[$node_index]]) . ">" if($setup->{DISPLAY_PERL_SIZE}) ;
 			$element = $tree->[$nodes_to_display[$node_index]] ;
 			$element_name = $node_names[$node_index] ;
 			$element_ref = \($tree->[$nodes_to_display[$node_index]]) ;
@@ -354,6 +423,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 		'REF' eq $_ and do
 			{
+			$perl_data  .= " <" . total_size($$tree) . ">" if($setup->{DISPLAY_PERL_SIZE}) ;
 			$element = $$tree ;
 			$element_name = "$tree" ;
 			$element_ref = $tree ;
@@ -362,14 +432,17 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 		'CODE' eq $_ and do
 			{
+			$perl_data  .= " <" . total_size($tree) . ">" if($setup->{DISPLAY_PERL_SIZE}) ;
 			$element = $tree ;
 			$element_name = "$tree" ;
 			$element_ref = "code_$tree" ;
 			last ;
 			} ;
 			
-		'SCALAR' eq $_ and do
+		('SCALAR' eq $_) and do
+		#~ ('SCALAR' eq $_ or 'GLOB' eq $_) and do
 			{
+			$perl_data  .= " <" . size($$tree) . ">" if($setup->{DISPLAY_PERL_SIZE}) ;
 			$element = $$tree ;
 			$element_name = '?' ;
 			$element_ref = "element_$tree" ;
@@ -390,6 +463,9 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			, $already_displayed_nodes
 			) ;
 			
+	local $setup->{DATA_PATH} = "$setup->{DATA_PATH}$element_name$closing_bracket" ;
+	#~ $output .= "$setup->{DATA_PATH}\n" ;
+	
 	my $level_text = '' ;
 	if($number_levels)
 		{
@@ -421,7 +497,6 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 	my $tree_header            = $indentation . $level_text . $previous_level_separator . $separator  ;
 	my $tree_subsequent_header = $indentation . $level_text . $previous_level_separator . $subsequent_separator ;
 	
-		
 	for(ref $element)
 		{
 		'' eq $_ and do
@@ -438,7 +513,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 						(
 						  $tree_header
 						, $tree_subsequent_header . '  '
-						, "$element_name $address= " . $value
+						, "$element_name $address= " . $value . $perl_data
 						) ;
 			$output .= "\n" ;
 			
@@ -455,18 +530,21 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 							, 'C'
 							, $already_displayed_nodes
 							, $display_address
+							, $perl_data
 							) ;
 			last ;
 			} ;
 			
 		'HASH' eq $_ and do
 			{
+			$perl_data  .= " $element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			$output .= HeaderAndSubTree
 							(
 							  $tree_header, $tree_subsequent_header
 							, $element, $element_ref, $element_name, $element_name, 'H'
 							, $already_displayed_nodes
 							, $display_address
+							, $perl_data
 							, @recursion_args
 							) ;
 			last ;
@@ -474,12 +552,14 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 		'ARRAY' eq $_ and do
 			{
+			$perl_data  .= " $element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			$output .= HeaderAndSubTree
 							(
 							  $tree_header, $tree_subsequent_header
 							, $element, $element_ref, $element_name, $element_name, 'A'
 							, $already_displayed_nodes
 							, $display_address
+							, $perl_data
 							, @recursion_args
 							) ;
 			last ;
@@ -493,6 +573,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 							, $element, $element_ref, $element_name, $element_name, 'RS'
 							, $already_displayed_nodes
 							, $display_address
+							, $perl_data
 							, @recursion_args
 							) ;
 			last ;
@@ -500,18 +581,20 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 		'GLOB' eq $_ and do
 			{
-			$output .= $tree_header . $element_name . " = GLOB ($element)\n" ;
+			$output .= $tree_header . $element_name . " = GLOB ($element) $perl_data\n" ;
 			last ;	
 			} ;
 			
 		'REF' eq $_ and do
 			{
+			$perl_data  .= " $element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			$output .= HeaderAndSubTree
 							(
 							  $tree_header, $tree_subsequent_header
 							, $element, $element_ref, $element_name, $element_name, 'R'
 							, $already_displayed_nodes
 							, $display_address
+							, $perl_data
 							, @recursion_args
 							) ;
 			last ;
@@ -526,6 +609,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 						, 'O'
 						, $already_displayed_nodes
 						, $display_address
+						, $perl_data
 						, @recursion_args
 						) ;
 		}
@@ -535,14 +619,10 @@ if($level == 0)
 	{
 	my $title = defined $setup->{TITLE} ? $setup->{TITLE} : '' ;
 	
-	if($display_root_address)
-		{
-		$title .= '[' . GetReferenceType($tree) . "0]\n" ;
-		}
-	else
-		{
-		$title .= "\n" ;
-		}
+	$title .= '[' . GetReferenceType($tree) . "0]" if($display_root_address) ;
+	$title .= " $tree" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+	$title .= " <" . total_size($tree) . ">" if($setup->{DISPLAY_PERL_SIZE}) ;
+	$title .= "\n" ;
 	
 	my $indentation = defined $setup->{INDENTATION} ? $setup->{INDENTATION} : '' ;
 	if($use_ascii)
@@ -587,6 +667,29 @@ else
 	}
 }
 
+sub GetTypeBrackets
+{
+my $type = shift ;
+my %types =
+	(
+	  ''       => ['<SCALAR:', '>']
+	, 'REF'    => ['<', '>']
+	, 'CODE'   => ['<CODE:', '>']
+	, 'HASH'   => ['{\'', '\'}']
+	, 'ARRAY'  => ['[', ']']
+	, 'SCALAR' => ['<SCALAR_REF:', '>']
+	) ;
+	
+if(exists $types{$type})
+	{
+	return(@{$types{$type}}) ;
+	}
+else
+	{
+	return('Unknown', '>') ;
+	}
+}
+
 #-------------------------------------------------------------------------------
 
 sub HeaderAndSubTree
@@ -596,7 +699,7 @@ my
 	  $tree_header, $tree_subsequent_header
 	, $element, $element_ref, $element_name, $element_header, $type
 	, $already_displayed_nodes
-	, $display_address
+	, $display_address, $perl_data
 	, @recursion_args
 	) = @_ ;
 	
@@ -615,7 +718,7 @@ if(exists $already_displayed_nodes->{$element})
 				(
 				  $tree_header
 				, $tree_subsequent_header
-				, $element_name . $element_address . "\n"
+				, $element_name . $element_address . $perl_data . "\n"
 				) ;
 	}
 else	
@@ -629,7 +732,7 @@ else
 				(
 				  $tree_header 
 				, $tree_subsequent_header 
-				, $element_header . $element_address . "\n"
+				, $element_header . $element_address . $perl_data . "\n"
 				) ;
 				
 	$output .= TreeDumper(@recursion_args) if @recursion_args ;
@@ -648,6 +751,7 @@ my $tree = shift ;
 
 my $tree_type = ref $tree ;
 my $level = shift ; # not used by this sub
+my $path = shift ; # not used by this sub
 my $keys = shift ;
 
 if('HASH' eq $tree_type)
@@ -708,6 +812,7 @@ sub HashKeysSorter
 {
 my $structure_to_dump = shift ;
 my $level = shift ; # not used by this sub
+my $path = shift ; # not used by this sub
 my $keys = shift ;
 
 if('HASH' eq ref $structure_to_dump)
@@ -743,13 +848,14 @@ return sub
 	{
 	my $tree = shift ;
 	my $level = shift ;
+	my $path = shift ;
 	my $keys = shift ;
 	
 	my ($tree_type, $replacement_tree);
 	
 	for my $filter (@filters)
 		{
-		($tree_type, $replacement_tree, @$keys) = $filter->($tree, $level, $keys) ;
+		($tree_type, $replacement_tree, @$keys) = $filter->($tree, $level, $path, $keys) ;
 		$tree = $replacement_tree if (defined $replacement_tree) ;
 		}
 		
@@ -1064,6 +1170,32 @@ direct B<Data::TreeDumper> to not display the node address by using:
 
   DISPLAY_ADDRESS => 0
 
+=head2 PERL DATA 
+
+Setting one of the options bellow  will show internal perl data
+
+  Cells: <2234> HASH(0x814F20c)
+  |- A1 [H1] <204> HASH(0x824620c)
+  |  `- VALUE [S2] = datadatadatadatadatadatadatadatadatadata <85>
+  |- A8 [H11] <165> HASH(0x8243d68)
+  |  `- VALUE [S12] = C <46>
+  `- C2 [H19] <165> HASH(0x8243dc0)
+     `- VALUE [S20] = B <46>
+
+=head3 DISPLAY_PERL_ADDRESS
+
+Setting this option will show the perl-address of the dumped data.
+
+  DISPLAY_PERL_ADDRESS => 1 
+  
+=head3 DISPLAY_PERL_SIZE
+
+Setting this option will show the memory allocated size for each element in the tree within angle brackets.
+
+  DISPLAY_PERL_SIZE => 1 
+
+See also the excellent B<Devel::Size::Report> from wich I Stole the idea.
+
 =head2 Filters
 
 Data::TreeDumper can sort the tree nodes with a user defined sub.
@@ -1071,13 +1203,32 @@ Data::TreeDumper can sort the tree nodes with a user defined sub.
   FILTER => \&ReverseSort
   FILTER => \&Data::TreeDumper::HashKeysSorter
 
-The filter sub is passed three arguments, a reference to the node which is going to be displayed,
-it's depth (this allows you to selectively display elements at a certain depth) and an array reference
-containing the keys to be displayed (see filter chaining bellow) last argument can be undefined and can then
+The filter sub is passed these arguments:
+
+=over 2
+
+=item 1 - a reference to the node which is going to be displayed
+
+=item 2 - the nodes depth (this allows you to selectively display elements at a certain depth) 
+
+=item 3 - the path to the reference from the start of the dump.
+
+=item 4 - an array reference containing the keys to be displayed (see filter chaining bellow) last argument can be undefined and can then
 be safely ignored.
 
-The filter returns the node's type, an eventual new structure (see bellow) and a list of 'keys' to display.
-The keys are hash keys or array indexes.
+=item 5 - the dumpers setup
+
+=back
+
+The filter returns the node's type, an eventual new structure (see bellow) and a list of 'keys' to display. The keys are hash keys or array indexes.
+
+
+In Perl:
+
+  ($tree_type, $replacement_tree, @nodes_to_display) = $your_filter->($tree, $level, $path, $nodes_to_display, $setup) ;
+
+Filter are not as complicated as they sound and they are very powerfull. Lots of examples can be found in I<filters.pl> and 
+I'll be glad to help if you want to develop a filter.
 
 If you set FILTER to \&Data::TreeDumper::HashKeysSorter, hashes will be sorted in alphabetic order.
 
@@ -1231,6 +1382,13 @@ that removes all (original) keys that match /^a/i.
   
   DumpTree($s, 'Chained filters', FILTER => CreateChainingFilter(\&AddStar, \&RemoveA)) ;
 
+=head2 level Filters
+
+It is possible to define one filter for a specific level. If a filter for a specific level exists it is used
+instead for the global filter.
+
+LEVEL_FILTERS => {1 => \&FilterForLevelOne, 5 => \&FilterForLevelFive ... } ;
+
 =head2 Start level
 
 This configuration option controls whether the tree trunk is displayed or not.
@@ -1366,11 +1524,17 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 
 =item * DISPLAY_ADDRESS 
 
+=item * DISPLAY_PERL_SIZE
+
 =item * DISPLAY_ROOT_ADDRESS 
+
+=item * DISPLAY_PERL_ADDRESS
 
 =item * FILTER 
 
 =item * INDENTATION 
+
+=item * LEVEL_FILTERS
 
 =item * MAX_DEPTH 
 
@@ -1393,16 +1557,19 @@ object oriented interface and the native interface. All interfaces return a stri
 
 =head3 Configuration Variables
 
-  $Data:TreeDumper::Startlevel         = 1 ;
-  $Data:TreeDumper::Useascii           = 1 ;
-  $Data:TreeDumper::Maxdepth           = -1 ;
-  $Data:TreeDumper::Indentation        = '' ;
-  $Data:TreeDumper::Virtualwidth       = 120 ;
-  $Data:TreeDumper::Displayrootaddress = 0 ;
-  $Data:TreeDumper::Displayaddress     = 1 ;
-  $Data:TreeDumper::Filter             = \&FlipEverySecondOne ;
-  $Data:TreeDumper::Numberlevels       = 0 ;
-  $Data:TreeDumper::Colorlevels        = undef ;
+  $Data::TreeDumper::Startlevel           = 1 ;
+  $Data::TreeDumper::Useascii             = 1 ;
+  $Data::TreeDumper::Maxdepth             = -1 ;
+  $Data::TreeDumper::Indentation          = '' ;
+  $Data::TreeDumper::Virtualwidth         = 120 ;
+  $Data::TreeDumper::Displayrootaddress   = 0 ;
+  $Data::TreeDumper::Displayaddress       = 1 ;
+  $Data::TreeDumper::Displayperlsize      = 0 ;
+  $Data::TreeDumper::Displayrootperlsize  = 0 ;
+  $Data::TreeDumper::Filter               = \&FlipEverySecondOne ;
+  $Data::TreeDumper::Levelfilters         = {1 => \&Filter_1, 5 => \&Filter_5} ;
+  $Data::TreeDumper::Numberlevels         = 0 ;
+  $Data::TreeDumper::Colorlevels          = undef ;
   
 =head3 Functions
 
@@ -1459,9 +1626,12 @@ B<DumpTrees> uses the configuration variables defined above. It takes the follow
   $dumper->SetIndentation('   ') ;
   $dumper->SetVirtualWidth(80) ;
   $dumper->SetFilter(\&Data::TreeDumper::HashKeysSorter) ;
+  $dumper->SetLevelFilters({1 => \&Filter_1, 5 => \&Filter_5) ;
   $dumper->SetStartLevel(0) ;
   $dumper->DisplayRootAddress(1) ;
   $dumper->DisplayAddress(0) ;
+  $dumper->DisplayRootPerlSize(1) ;
+  $dumper->DisplayPerlSize(0) ;
   $dumper->NumberLevels(2) ;
   $dumper->ColorLevels(\&ColorLevelSub) ;
   
@@ -1480,6 +1650,7 @@ B<DumpTrees> uses the configuration variables defined above. It takes the follow
   	  $s
   	, {
   	    FILTER               => \&Data::TreeDumper::HashKeysSorter
+  	  , LEVEL_FILTERS        => {1 => \&Filter_1, 5 => \&Filter_5}
   	  , START_LEVEL          => 1
   	  , USE_ASCII            => 0
   	  , MAX_DEPTH            => 2
@@ -1508,6 +1679,10 @@ I<colors.pl> shows you how you how to colorize a dump.
 
 I<try_it.pl> is meant as a scratch pad for you to try B<Data::TreeDumper>.
 
+=head1 DEPENDENCY
+
+Optional B<Devel::Size> if you want Data::TreeDumper to show perl sizes for the tree elements.
+
 =head1 EXPORT
 
 I<DumpTree>, I<DumpTrees> and  I<CreateChainingFilter>.
@@ -1528,7 +1703,8 @@ are welcome at <nadim@khemir.net>.
 
 =head1 SEE ALSO
 
-The excellent B<Data::Dumper>.
+B<Data::Dumper>.
+B<Devel::Size::Report>.
 
 B<PBS>: the Perl Build System from which B<Data::TreeDumper> was extracted. Contact the author
 for more information about B<PBS>.

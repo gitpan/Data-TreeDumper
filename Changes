@@ -35,7 +35,6 @@ Revision history for Perl extension Data::TreeDumper.
 0.091 Tue Oct 21 19:00:00 2003 # unreleased
 	FIXED: REmove '\n' from TITLE in sub DumpTree
 	
-
 0.10  Sat Nov 11 15:00:00 2003
 	ADDED: level numbering and tagging
 	ADDED: tagging examples in filter.pl
@@ -46,3 +45,10 @@ Revision history for Perl extension Data::TreeDumper.
 0.11  Wedt Dec 10 22:00:00 2003
 	CHANGED: documentation about label
 	ADDED: DumpTrees and DumpMany
+	
+0.12  Sun Jan 11 17:00:00 2004
+	ADDED: Level filters
+	FIXED: default value for object filter was the package filter (was that a good move?)
+	ADDED: DISPLAY_PERL_SIZE, DISPLAY_ROOT_PERL_SIZE
+	ADDED: filter path, might break older advanced filters
+	

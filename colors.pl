@@ -69,7 +69,7 @@ print Data::TreeDumper::DumpTree($s, "Level glyph coloring using an array", COLO
 
 sub ColorLabel
 {
-my ($tree, $level, $nodes_to_display, $setup) = @_ ;
+my ($tree, $level, my $path, $nodes_to_display, $setup) = @_ ;
 
 if('HASH' eq ref $tree)
 	{

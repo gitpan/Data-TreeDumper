@@ -11,7 +11,71 @@ do "s" ;
 
 $Data::TreeDumper::Useascii = 0 ;
 
-print Data::TreeDumper::DumpTree($s, 'Unaltered data structure') ;
+my $dump_separator = "\n" . '-' x 40 . "\n\n" ;
+
+print DumpTree($s, 'Unaltered data structure') ;
+print $dump_separator ;
+
+#-------------------------------------------------------------------------------
+# Level filters
+#-------------------------------------------------------------------------------
+sub GenerateFilter
+{
+my $letter = shift ;
+
+return
+	(
+	sub
+		{
+		my $tree = shift ;
+		
+		if('HASH' eq ref $tree)
+			{
+			my @keys_to_dump ;
+			for my $key_name (keys %$tree)
+				{
+				push @keys_to_dump, $key_name if($key_name =~ /^$letter/i)
+				}
+				
+			return ('HASH', undef, @keys_to_dump) ;
+			}
+			
+		return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
+		}
+	) ;
+}
+
+print DumpTree
+	(
+	$s
+	, 'Level filters'
+	, LEVEL_FILTERS =>
+		{
+		  0 => GenerateFilter('a')
+		, 1 => GenerateFilter('b')
+		, 2 => GenerateFilter('c')
+		}
+	) ;
+print $dump_separator ;
+
+#-------------------------------------------------------------------------------
+# path filter
+#-------------------------------------------------------------------------------
+
+sub PathFilter
+	{
+	my $tree = shift ;
+	my $level = shift ;
+	my $path = shift ;
+	
+	print "Filtering $tree at path: $path\n" ;
+	
+	return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
+	}
+
+print "Show the path a filter gets\n" ;
+print DumpTree($s, "\nTree", FILTER => \&PathFilter, DISPLAY_PERL_SIZE => 1, DISPLAY_PERL_ADDRESS => 1) ;
+print $dump_separator ;
 
 #-------------------------------------------------------------------------------
 # removing nodes from dump
@@ -38,7 +102,8 @@ if('HASH' eq ref $tree)
 return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 }
 
-print Data::TreeDumper::DumpTree($s, "Remove hash keys matching /^a/i", FILTER => \&RemoveAFromHash) ;
+print DumpTree($s, "Remove hash keys matching /^a/i", FILTER => \&RemoveAFromHash) ;
+print $dump_separator ;
 
 #-------------------------------------------------------------------------------
 # label changing
@@ -70,13 +135,15 @@ if('HASH' eq ref $tree)
 return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 }
 
-print Data::TreeDumper::DumpTree($s, "Entries matching /^a/i have '*' prepended", FILTER => \&StarOnA) ;
+print DumpTree($s, "Entries matching /^a/i have '*' prepended", FILTER => \&StarOnA) ;
+print $dump_separator ;
 
 #-------------------------------------------------------------------------------
 # level numbering and tagging
 #-------------------------------------------------------------------------------
 
-print Data::TreeDumper::DumpTree($s, "Level numbering", NUMBER_LEVELS => 2) ;
+print DumpTree($s, "Level numbering", NUMBER_LEVELS => 2) ;
+print $dump_separator ;
 
 sub GetLevelTagger
 {
@@ -84,7 +151,7 @@ my $level_to_tag = shift ;
 
 sub 
 	{
-	my ($tree, $level, $nodes_to_display, $setup) = @_ ;
+	my ($tree, $level, $path, $nodes_to_display, $setup) = @_ ;
 	
 	my $tag = "Level $level_to_tag: ";
 	
@@ -99,7 +166,8 @@ sub
 	} ;
 }
 
-print Data::TreeDumper::DumpTree($s, "Level tagging", NUMBER_LEVELS => GetLevelTagger(0)) ;
+print DumpTree($s, "Level tagging", NUMBER_LEVELS => GetLevelTagger(0)) ;
+print $dump_separator ;
 
 #-------------------------------------------------------------------------------
 # Coloring : see examples in color.pl
@@ -124,7 +192,8 @@ if('ARRAY' eq ref $tree)
 return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 }
 
-print Data::TreeDumper::DumpTree($s, 'MungeArray!', FILTER => \&MungeArray) ;
+print DumpTree($s, 'MungeArray!', FILTER => \&MungeArray) ;
+print $dump_separator ;
 
 sub ReplaceArray
 {
@@ -141,7 +210,8 @@ if('ARRAY' eq ref $tree)
 return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 }
 
-print Data::TreeDumper::DumpTree($s, 'Replace arrays with hashes!', FILTER => \&ReplaceArray) ;
+print DumpTree($s, 'Replace arrays with hashes!', FILTER => \&ReplaceArray) ;
+print $dump_separator ;
 
 #-------------------------------------------------------------------------------
 # filter chaining
@@ -151,6 +221,7 @@ sub AddStar
 {
 my $tree = shift ;
 my $level = shift ;
+my $path = shift ;
 my $keys = shift ;
 
 if('HASH' eq ref $tree)
@@ -182,6 +253,7 @@ sub RemoveA
 {
 my $tree = shift ;
 my $level = shift ;
+my $path = shift ;
 my $keys = shift ;
 
 if('HASH' eq ref $tree)
@@ -209,8 +281,16 @@ return(Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 }
 
 print DumpTree($s, 'AddStar', FILTER => \&AddStar) ;
+print $dump_separator ;
+
 print DumpTree($s, 'HashKeysSorter+ AddStar', FILTER => CreateChainingFilter(\&Data::TreeDumper::HashKeysSorter, \&AddStar)) ;
+print $dump_separator ;
+
 print DumpTree($s, 'AddStar + HashKeysSorter', FILTER => CreateChainingFilter(\&AddStar, \&Data::TreeDumper::HashKeysSorter)) ;
+print $dump_separator ;
 
 print DumpTree($s, 'RemoveA', FILTER => \&RemoveA) ;
+print $dump_separator ;
+
 print DumpTree($s, 'AddStart + RemoveA', FILTER => CreateChainingFilter(\&AddStar, \&RemoveA)) ;
+print $dump_separator ;

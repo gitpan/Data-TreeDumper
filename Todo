@@ -1,4 +1,17 @@
 
+#perl address
+#perl size
+
+#pass path to filters
+
+#Filters setting perl level + some global if needed
+	
+coloring the title
+coloring the tree
+example of coloring an array index
+
+#typo: missing ':' in documentation (fixed but not released
+
 #dump of multiple structures
 
 #level numbering / tagging / coloring
