@@ -19,7 +19,7 @@ our %EXPORT_TAGS =
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
-our $VERSION = '0.16' ;
+our $VERSION = '0.17' ;
 
 my $WIN32_CONSOLE ;
 
@@ -233,7 +233,16 @@ EOE
 		
 	if(defined $setup->{RENDERER}{BEGIN})
 		{
-		$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE}, '[' . GetReferenceType($tree) . "0]", $tree, $setup) ;
+		my $root_address = '' ;
+		$root_address = GetReferenceType($tree) . '0' if($setup->{DISPLAY_ROOT_ADDRESS}) ;
+		
+		my $perl_address = '' ;
+		$perl_address = $tree                         if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		
+		my $perl_size = '' ;
+		$perl_size = total_size($tree)                if($setup->{DISPLAY_PERL_SIZE}) ;
+		
+		$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE}, $root_address, $tree, $perl_size, $perl_address, $setup) ;
 		}
 	else
 		{
@@ -326,8 +335,10 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 	
 	local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}$opening_bracket$element_name$closing_bracket" ;
 	
-	my $perl_data = '' ;
-	$perl_data = " <" . total_size($element) . ">" if($setup->{DISPLAY_PERL_SIZE}) ;
+	my $perl_size = '' ;
+	$perl_size = total_size($element) if($setup->{DISPLAY_PERL_SIZE}) ;
+	
+	my $perl_address = "" ;
 	
 	my $tag = '' ;
 	my $element_value = '' ;
@@ -344,7 +355,61 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			$element_address = $element_id ; # OK for terminal nodes
 			$element_value = "$value" ;
 			
-			$perl_data  .= " $element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			last ;
+			} ;
+			
+		'HASH' eq $_ and do
+			{
+			# node is terminal if it has no children
+			$is_terminal_node++ unless %$element ;
+			
+			# node might be terminal if filter says it has no children
+			if(!$is_terminal_node && defined $setup->{RENDERER}{NODE})
+				{
+				my $children_filter_sub = $filter_sub ;
+				$children_filter_sub = $level_filters->{$level + 1} if(defined $level_filters && exists $level_filters->{$level + 1}) ;
+				
+				if(defined $children_filter_sub)
+					{
+					my @children_nodes_to_display ;
+					
+					local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}\{$element_name\}" ;
+					(undef, undef, @children_nodes_to_display) = $children_filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, \@children_nodes_to_display, $setup) ;
+					
+					$is_terminal_node++ unless @children_nodes_to_display ;
+					}
+				}
+				
+			$tag = 'H' ;
+			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			last ;
+			} ;
+			
+		'ARRAY' eq $_ and do
+			{
+			# node is terminal if it has no children
+			$is_terminal_node++ unless(@$element) ;
+			
+			# node might be terminal if filter says it has no children
+			if(!$is_terminal_node && defined $setup->{RENDERER}{NODE})
+				{
+				my $children_filter_sub = $filter_sub ;
+				$children_filter_sub = $level_filters->{$level + 1} if(defined $level_filters && exists $level_filters->{$level + 1}) ;
+				
+				if(defined $children_filter_sub)
+					{
+					my @children_nodes_to_display ;
+					
+					local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}\[$element_name\]" ;
+					(undef, undef, @children_nodes_to_display) = $children_filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, \@children_nodes_to_display, $setup) ;
+					
+					$is_terminal_node++ unless @children_nodes_to_display ;
+					}
+				}
+				
+			$tag = 'A' ;
+			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			last ;
 			} ;
 			
@@ -353,7 +418,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			$is_terminal_node++ ;
 			$tag = 'C' ;
 			$element_value = "$element" ;
-			$perl_data  .= " $element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			last ;
 			} ;
 			
@@ -361,7 +426,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			{
 			$tag = 'RS' ;
 			$element_address = $element_id ;
-			$perl_data  .= " $element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			last ;
 			} ;
 			
@@ -369,45 +434,33 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			{
 			$is_terminal_node++ ;
 			$tag = 'G' ;
-			$perl_data  .= " $element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			last ;	
-			} ;
-			
-		'HASH' eq $_ and do
-			{
-			$tag = 'H' ;
-			$perl_data  .= " $element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			last ;
-			} ;
-			
-		'ARRAY' eq $_ and do
-			{
-			$tag = 'A' ;
-			$perl_data  .= " $element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			last ;
 			} ;
 			
 		'REF' eq $_ and do
 			{
 			$tag = 'R' ;
-			$perl_data  .= " $element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			last ;
 			} ;
 			
 		# DEFAULT, an object.
 		$tag = 'O' ;
 		$element_value = "Object of type '" . ref($element) . "'" if($setup->{DISPLAY_OBJECT_TYPE}) ;
-		$perl_data  .= " $element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 		}
 		
 	my $dtd_address = $tag . $already_displayed_nodes->{NEXT_INDEX} ;
 	my $address_field = '' ;
+	my $address_link ;
 	
 	if(exists $already_displayed_nodes->{$element_address})
 		{
 		$already_displayed_nodes->{NEXT_INDEX}++ ;
 		
 		$address_field = " [$dtd_address -> $already_displayed_nodes->{$element_address}]" if $setup->{DISPLAY_ADDRESS} ;
+		$address_link = $already_displayed_nodes->{$element_address} ;
 		$is_terminal_node = 1 ;
 		}
 	else	
@@ -449,8 +502,9 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 						, $element_name
 						, $element_value
 						, $dtd_address
-						, $address_field
-						, $perl_data
+						, $address_link
+						, $perl_size
+						, $perl_address
 						, $setup
 						) ;
 			}
@@ -465,7 +519,10 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 			my $element_description = $element_name ;
 			$element_description .= " = $element_value" if $element_value ne '' ;
-			$element_description .= $address_field. $perl_data . "\n" ;
+			
+			$perl_size = " <$perl_size> " unless $perl_size eq '' ;
+			
+			$element_description .= "$address_field$perl_size$perl_address\n" ;
 			
 			my ($columns, $rows) ;
 			if($^O ne 'MSWin32')
@@ -546,8 +603,8 @@ if('ARRAY' eq $tree_type)
 	}
 
 return('SCALAR', undef, (0))  if('SCALAR'  eq $tree_type) ;
-return('REF', undef, (0))     if('REF'     eq $tree_type) ;
-return('CODE', undef, (0))    if('CODE'    eq $tree_type) ;
+return('REF',    undef, (0))  if('REF'     eq $tree_type) ;
+return('CODE',   undef, (0))  if('CODE'    eq $tree_type) ;
 
 my @nodes_to_display ;
 undef $tree_type ;
@@ -813,7 +870,7 @@ return
 __END__
 =head1 NAME
 
-Data::TreeDumper - Dumps a data structure in a tree fashion.
+Data::TreeDumper - Visually improved data structure dumper. Powerful filtering capability.
 
 =head1 SYNOPSIS
 
@@ -861,7 +918,6 @@ Data::TreeDumper - Dumps a data structure in a tree fashion.
   
   $Data::TreeDumper::Useascii = 0 ;
   $Data::TreeDumper::Maxdepth = 2 ;
-  $Data::TreeDumper::Filter   = \&Data::TreeDumper::HashKeysSorter ;
   
   print DumpTree($s, 'title') ;
   print DumpTree($s, 'title', MAX_DEPTH => 1) ;
@@ -924,18 +980,18 @@ within the label.
              ^     ^ 
              |     | address of the data refered to
              |
-             | current address
+             | current element address
 
 =head3 Types
 
-B<H>: Hash,
-B<C>: Code,
-B<A>: Array,
-B<R>: Reference,
-
-B<O>: Object,
 B<S>: Scalar,
+B<H>: Hash,
+B<A>: Array,
+B<C>: Code,
+
+B<R>: Reference,
 B<RS>: Scalar reference.
+B<O>: Object,
 
 =head2 Empty Hash or Array
 
@@ -982,7 +1038,7 @@ direct B<Data::TreeDumper> to not display the node address by using:
 Data::TreeDumper displays the package in which an object is blessed.  You 
 can suppress this display by using:
 
-  DISPLAY_OBJECT_TYPE => 1
+  DISPLAY_OBJECT_TYPE => 0
 
 =head2 PERL DATA 
 
@@ -996,18 +1052,18 @@ Setting one of the options below will show internal perl data:
   `- C2 [H19] <165> HASH(0x8243dc0)
      `- VALUE [S20] = B <46>
 
-=head3 DISPLAY_PERL_ADDRESS
-
-Setting this option will show the perl-address of the dumped data.
-
-  DISPLAY_PERL_ADDRESS => 1 
-  
 =head3 DISPLAY_PERL_SIZE
 
 Setting this option will show the size of the memory allocated for each element in the tree within angle brackets.
 
   DISPLAY_PERL_SIZE => 1 
 
+=head3 DISPLAY_PERL_ADDRESS
+
+Setting this option will show the perl-address of the dumped data.
+
+  DISPLAY_PERL_ADDRESS => 1 
+  
 See also the excellent B<Devel::Size::Report> from which I stole the idea.
 
 =head2 QUOTE_HASH_KEYS
@@ -1034,7 +1090,7 @@ display the data yourself, manipulate the data structure, or do a search
 
 =head2 Filters
 
-Data::TreeDumper can sort the tree nodes with a user defined subroutine.
+Data::TreeDumper can sort the tree nodes with a user defined subroutine. By default, hash keys are sorted.
 
   FILTER => \&ReverseSort
   FILTER => \&Data::TreeDumper::HashKeysSorter
@@ -1151,7 +1207,7 @@ version of the structure. You can even change the type of the data structure, fo
 
   print DumpTree($s, 'replace arrays with hashes!', FILTER => \&ReplaceArray) ;
 
-Here is a real life replacement. B<Tree::Simple> L<http://search.cpan.org/dist/Tree-Simple/> allows one
+Here is a real life example. B<Tree::Simple> (L<http://search.cpan.org/dist/Tree-Simple/>) allows one
 to build tree structures. The child nodes are not directly in the parent object (hash). Here is an unfiltered
 dump of a tree with seven nodes:
 
@@ -1463,7 +1519,7 @@ on the left side of the tree glyphs. The example below tags all the nodes whose 
 
 Another way to enhance the output for easier searching is to colorize it. Data::TreeDumper can colorize the glyph elements or whole levels.
 If your terminal supports ANSI codes, using Term::ANSIColors and Data::TreeDumper together can greatly ease the reading of large dumps.
-See the examples in color.pl. 
+See the examples in 'B<color.pl>'. 
 
   COLOR_LEVELS => [\@color_codes, $reset_code]
 
@@ -1504,7 +1560,7 @@ wrapped multiple times so they snuggly fit your screen.
 
 B<Data::TreeDumper> has a plug-in interface for other rendering formats. The renderer callbacks are
 set by overriding the native renderer. Thanks to Stevan Little author of Tree::Simple::View for getting
-B<Data::TreeDumper> on this track.
+B<Data::TreeDumper> on this track. Check B<Data::TreeDumper::Renderer::DHTML>.
 
  DumpTree
   	(
@@ -1529,8 +1585,29 @@ B<Data::TreeDumper> on this track.
 =item * {RENDERER}{BEGIN} is called before the traversal of the data structure starts. This allows you
 to setup the document (ex:: html header).
 
-=item * {RENDERER}{NODE} is called for each node in the data structure. The following arguments are 
-passed to the callback
+=over 4
+my ($title, $type_address, $element, $size, $perl_address, $setup) = @_ ;
+
+=item 1 $title
+
+
+=item 2 $type_address
+
+
+=item 3 $element
+
+
+=item 4 $perl_size
+
+
+=item 5 $perl_address
+
+
+=item 6 $setup
+
+=back
+
+=item * {RENDERER}{NODE} is called for each node in the data structure. The following arguments are passed to the callback
 
 =over 4
 
@@ -1555,16 +1632,19 @@ passed to the callback
 =item 7 $element_value
 
 
-=item 8 $dtd_address (address of the element, Ex: C12 or H34. Unique for each element)
+=item 8 $td_address (address of the element, Ex: C12 or H34. Unique for each element)
 
 
-=item 9 $address_field (address and link displayed by the native renderer)
+=item 9 $link_address (link to another element, may be undef)
 
 
-=item 10 $perl_data (perl size and/or address if the dumper was set too generate them)
+=item 10 $perl_size (size of the lement in bytes, see option B<DISPLAY_PERL_SIZE>)
 
 
-=item 11 $setup (the dumper's settings)
+=item 11 $perl_address (adress (physical) of the element, see option B<DISPLAY_PERL_ADDRESS>)
+
+
+=item 12 $setup (the dumper's settings)
 
 
 =back
@@ -1655,7 +1735,7 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
   $Data::TreeDumper::Virtualwidth         = 120 ;
   $Data::TreeDumper::Displayrootaddress   = 0 ;
   $Data::TreeDumper::Displayaddress       = 1 ;
-  $Data::TreeDumper::DisplayObjectType    = 1 ;
+  $Data::TreeDumper::Displayobjecttype    = 1 ;
   $Data::TreeDumper::Displayperlsize      = 0 ;
   $Data::TreeDumper::Displayperladdress   = 0 ;
   $Data::TreeDumper::Filter               = \&FlipEverySecondOne ;
@@ -1729,6 +1809,8 @@ I<try_it.pl> is meant as a scratch pad for you to try B<Data::TreeDumper>.
 
 =head1 DEPENDENCY
 
+B<Text::Wrap>.
+
 Optional B<Devel::Size> if you want Data::TreeDumper to show perl sizes for the tree elements.
 
 =head1 EXPORT
@@ -1751,10 +1833,11 @@ are welcome at <nadim@khemir.net>.
 
 =head1 SEE ALSO
 
-B<Data::TreeDumper::00>.
-B<Data::Dumper>.
-B<Devel::Size::Report>.
-B<Devel::Size>.
+B<Data::TreeDumper::00>. B<Data::Dumper>.
+
+B<Data::TreeDumper::Renderer::DHTML>.
+
+B<Devel::Size::Report>.B<Devel::Size>.
 
 B<PBS>: the Perl Build System from which B<Data::TreeDumper> was extracted. Contact the author
 for more information about B<PBS>.

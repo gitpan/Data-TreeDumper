@@ -1,6 +1,10 @@
 Revision history for Perl extension Data::TreeDumper.
 
-0.16  xxxx Sat July xxx 19:30:00 2004
+0.17  Thu Sep 30 20:00:00 2004
+	CHANGED: 'hash keys are sorted' added to the documentation
+	CHANGED: Renderer interface
+
+0.16 Thu Aug 05 00:00:00 2004
 	CHANGED: documentation was checked by Aaron Dalton
 	ADDED: GLYPHS override
 	ADDED: QUOTE_HASH_KEYS override
@@ -12,7 +16,7 @@ Revision history for Perl extension Data::TreeDumper.
         CHANGED: the documentation slightly
 	ADDED: DISPLAY_OBJECT_TYPE
 	CHANGED: TreeDumper is not exported anymore to eliminate recuring tests of setup variables.
-	CHANGED: refactored the dmper code
+	CHANGED: refactored the dumper code
 	CHANGED: Separated OO interface
 	FIXED: perl address properly displayed for scalars
 	ADDED: RENDERER plug-in support and some examples

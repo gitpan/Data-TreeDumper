@@ -1,15 +1,14 @@
 Data/TreeDumper version
 ========================
 
-Version 0.16
+Version 0.17
 
-Data::TreeDumper dumps any data structure in tree fasion. Try the examples
+Data::TreeDumper dumps any data structure. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-	CHANGED: documentation was checked by Aaron Dalton
-	ADDED: GLYPHS override
-	ADDED: QUOTE_HASH_KEYS override
+	CHANGED: 'hash keys are sorted' added to the documentation
+	CHANGED: Renderer interface
 
 Ex:
 
