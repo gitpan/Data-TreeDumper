@@ -1,9 +1,17 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.20 Sun Jan 16 16:00:00 2005
+	FIXED: \n replacement missed \r (from dos files for example)
+	ADDED: a more generic replacement system via REPLACEMENT_LIST
+	ADDED: NO_WRAP
+	ADDED: show if a node has more sublevel but those will not be displayed because of MAX_DEPTH
+	ADDED: DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH
+	ADDED: NO_PACKAGE_SETUP
+
 0.19 Wed Dec 1 00:01:00 2004
 	FIXED: object display was incorrect after "Renderer" modification
-	ADDED: display that an array or a hash doesn't have any elemnts
-	ADDED: quick _hack_ for replacing \n with a string to avoid garbaging the output
+	ADDED: display if an array or a hash doesn't have any elemnts
+	ADDED: quick _hack_ for replacing \n within a string to avoid garbaging the output
 	FIXED: garbage scalars links. scalars can't link anywhere, gave them a unique address
 
 0.18  

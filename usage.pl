@@ -56,7 +56,7 @@ $Data::TreeDumper::Filter       =  \&Data::TreeDumper::HashKeysSorter ;
 $Data::TreeDumper::Virtualwidth =  80 ;
 
 print Data::TreeDumper::DumpTree($s, "Using package data") ;
-print Data::TreeDumper::DumpTree($s, "Using package data with override", MAX_DEPTH => 1) ;
+print Data::TreeDumper::DumpTree($s, "Using package data with override", MAX_DEPTH => 1, DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => 1) ;
 
 #-------------------------------------------------------------------
 # OO interface

@@ -1,4 +1,26 @@
 
+Add the possibility to prune self not only children
+
+Accept non reference input
+	=> implemented but not accepted yet
+
+#show if a node has more sublevel but those will not be displayed because of MAX_DEPTH
+	=> with option
+
+	
+#NO_WRAP option
+
+#RESET => NO_PACKAGE_SETTINGS
+
+#Document
+	#Copyright year is wrong
+	#dependency to module giving the console size
+	#\n not documented
+	#(no elements)
+
+#option for what \r \n are replaced with
+#	should give the possibility to replace any non printing character
+
 #make it visible when a node has sub levels but MAX_DEPTH stops its display
 
 Handle data that contains "\n" and make the output look bad.

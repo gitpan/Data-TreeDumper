@@ -1,16 +1,18 @@
 Data/TreeDumper version
 ========================
 
-Version 0.19
+Version 0.20 Sun Jan 16 16:00:00 2005
 
 Data::TreeDumper dumps any data structure. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-	FIXED: object display was incorrect after "Renderer" modification
-	ADDED: display that an array or a hash doesn't have any elemnts
-	ADDED: quick _hack_ for replacing \n with a string to avoid garbaging the output
-	FIXED: removed garbage scalars links. scalars can't link anywhere, gave them a unique address
+	FIXED: \n replacement missed \r (from dos files for example)
+	ADDED: a more generic replacement system via REPLACEMENT_LIST
+	ADDED: NO_WRAP
+	ADDED: show if a node has more sublevel but those will not be displayed because of MAX_DEPTH
+	ADDED: DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH
+	ADDED: NO_PACKAGE_SETUP
 	
 Ex:
 my $tree = { ... } ;

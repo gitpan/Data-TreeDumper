@@ -19,7 +19,7 @@ our %EXPORT_TAGS =
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
-our $VERSION = '0.19' ;
+our $VERSION = '0.20' ;
 
 my $WIN32_CONSOLE ;
 
@@ -42,27 +42,70 @@ BEGIN
 	
 use Text::Wrap  ;
 
+#-------------------------------------------------------------------------------
+# setup values
+#-------------------------------------------------------------------------------
+
+our %setup =
+	(
+	  FILTER                 => undef
+	, LEVEL_FILTERS          => undef
+	, USE_ASCII              => 1
+	, MAX_DEPTH              => -1
+	, INDENTATION            => ''
+	, NO_OUTPUT              => 0
+	, START_LEVEL            => 1
+	, VIRTUAL_WIDTH          => 120
+	, DISPLAY_ROOT_ADDRESS   => 0
+	, DISPLAY_ADDRESS        => 1
+	, DISPLAY_OBJECT_TYPE    => 1
+	, DISPLAY_PERL_SIZE      => 0
+	, DISPLAY_PERL_ADDRESS   => 0
+	, NUMBER_LEVELS          => 0
+	, COLOR_LEVELS           => undef
+	, GLYPHS                 => ['|  ', '|- ', '`- ', '   ']
+	, QUOTE_HASH_KEYS        => 0
+	, QUOTE_VALUES           => 0
+	, REPLACEMENT_LIST       => [ ["\n" => '[\n]'], ["\r" => '[\r]'] ]
+	
+	, DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => 0
+	
+	, __DATA_PATH            => ''
+	, __TYPE_SEPARATORS      => {
+					  ''       => ['<SCALAR:', '>']
+					, 'REF'    => ['<', '>']
+					, 'CODE'   => ['<CODE:', '>']
+					, 'HASH'   => ['{\'', '\'}']
+					, 'ARRAY'  => ['[', ']']
+					, 'SCALAR' => ['<SCALAR_REF:', '>']
+					} 
+	) ;
+	
 #----------------------------------------------------------------------
 # package variables à la Data::Dumper (as is the silly  naming scheme)
 #----------------------------------------------------------------------
 
-our $Filter              = undef ;
-our $Levelfilters        = undef ;
-our $Useascii            = 1 ;
-our $Maxdepth            = -1 ;
-our $Indentation         = '' ;
-our $Nooutput            = 0;
-our $Startlevel          = 1 ;
-our $Virtualwidth        = 120 ; 
-our $Displayrootaddress  = 0 ;
-our $Displayaddress      = 1 ;
-our $Displayobjecttype   = 1 ;
-our $Displayperlsize     = 0 ;
-our $Displayperladdress  = 0 ;
-our $Numberlevels        = 0 ;
-our $Colorlevels         = undef ;
-our $Glyphs              = ['|  ', '|- ', '`- ', '   '] ;
-our $Quotehashkeys       = 0 ;
+our $Filter               = $setup{FILTER} ;
+our $Levelfilters         = $setup{LEVEL_FILTERS} ;
+our $Useascii             = $setup{USE_ASCII} ;
+our $Maxdepth             = $setup{MAX_DEPTH} ;
+our $Indentation          = $setup{INDENTATION} ;
+our $Nooutput             = $setup{NO_OUTPUT} ;
+our $Startlevel           = $setup{START_LEVEL} ;
+our $Virtualwidth         = $setup{VIRTUAL_WIDTH} ;
+our $Displayrootaddress   = $setup{DISPLAY_ROOT_ADDRESS} ;
+our $Displayaddress       = $setup{DISPLAY_ADDRESS} ;
+our $Displayobjecttype    = $setup{DISPLAY_OBJECT_TYPE} ;
+our $Displayperlsize      = $setup{DISPLAY_PERL_SIZE} ;
+our $Displayperladdress   = $setup{DISPLAY_PERL_ADDRESS} ;
+our $Numberlevels         = $setup{NUMBER_LEVELS} ;
+our $Colorlevels          = $setup{COLOR_LEVELS} ;
+our $Glyphs               = [@{$setup{GLYPHS}}] ; # we don't want it to be shared
+our $Quotehashkeys        = $setup{QUOTE_HASH} ;
+our $Quotevalues          = $setup{QUOTE_VALUES} ;
+our $ReplacementList      = [@{$setup{REPLACEMENT_LIST}}] ; # we don't want it to be shared
+
+our $Displaynumberofelementsovermaxdepth = $setup{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH} ;
 
 #~ our $Deparse    = 0 ;  # not implemented 
 
@@ -87,16 +130,12 @@ return
 	, COLOR_LEVELS           => $Data::TreeDumper::Colorlevels
 	, GLYPHS                 => $Data::TreeDumper::Glyphs
 	, QUOTE_HASH_KEYS        => $Data::TreeDumper::Quotehashkeys
+	, REPLACEMENT_LIST       => $Data::TreeDumper::ReplacementList
+	
+	, DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => $Displaynumberofelementsovermaxdepth
 	
 	, __DATA_PATH            => ''
-	, __TYPE_SEPARATORS      => {
-					  ''       => ['<SCALAR:', '>']
-					, 'REF'    => ['<', '>']
-					, 'CODE'   => ['<CODE:', '>']
-					, 'HASH'   => ['{\'', '\'}']
-					, 'ARRAY'  => ['[', ']']
-					, 'SCALAR' => ['<SCALAR_REF:', '>']
-					} 
+	, __TYPE_SEPARATORS      => $setup{__TYPE_SEPARATORS}
 	) ;
 }
 
@@ -111,7 +150,14 @@ my %overrides         =  @_ ;
 
 $title = defined $title ? $title : '' ;
 
-return(TreeDumper($structure_to_dump, {TITLE => $title, GetPackageSetup(), %overrides})) ;
+if(exists $overrides{NO_PACKAGE_SETUP} && $overrides{NO_PACKAGE_SETUP})
+	{
+	return(TreeDumper($structure_to_dump, {TITLE => $title, %setup, %overrides})) ;
+	}
+else
+	{
+	return(TreeDumper($structure_to_dump, {TITLE => $title, GetPackageSetup(), %overrides})) ;
+	}
 }
 
 #-------------------------------------------------------------------------------
@@ -141,11 +187,18 @@ my $tree             = shift ;
 my $setup            = shift ;
 my $level            = shift || 0 ;
 my $levels_left      = shift || [] ;
-my $already_displayed_nodes = shift || {$tree => GetReferenceType($tree) . '0', NEXT_INDEX => 1} ;
 
 my $tree_type = ref $tree ;
-
 confess "TreeDumper can only display objects passed by reference!\n" if('' eq  $tree_type) ;
+#~ # if we want to handle scalars passed to the dumper
+#~ if('' eq  $tree_type)
+	#~ {
+	#~ $setup->{QUOTE_VALUES}++ ;
+	#~ my ($package, $file_name, $line) = caller() ;
+	#~ $tree = {"DTD: Element passed by value @ $file_name:$line!" => $tree} ;
+	#~ }
+	
+my $already_displayed_nodes = shift || {$tree => GetReferenceType($tree) . '0', NEXT_INDEX => 1} ;
 
 return('') if ($setup->{MAX_DEPTH} == $level) ;
 
@@ -359,7 +412,17 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 			my $value = defined $element ? $element : 'undef' ;
 			$element_value = "$value" ;
-			$element_value =~ s/\n/[\\n]/g ;
+			
+			my $replacement_list = $setup->{REPLACEMENT_LIST} ;
+			if(defined $replacement_list)
+				{
+				for my $replacement (@$replacement_list)
+					{
+					my $find = $replacement->[0] ;
+					my $replace = $replacement->[1] ;
+					$element_value =~ s/$find/$replace/g ;
+					}
+				}
 			
 			if($setup->{QUOTE_VALUES} && defined $element)
 				{
@@ -369,7 +432,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 				{
 				$default_element_rendering = " = $element_value" ;
 				}
-			
+				
 			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			last ;
 			} ;
@@ -399,6 +462,14 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			$tag = 'H' ;
 			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			$default_element_rendering = ' (no elements)' unless %{$element} ;
+			
+			if(%{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+				{
+				my $number_of_elements = keys %{$element} ;
+				my $plural = $number_of_elements > 1 ? 's' : '' ;
+				$default_element_rendering .= ' (' . $number_of_elements . ' element' . $plural . ')' ; 
+				}
+				
 			last ;
 			} ;
 			
@@ -427,6 +498,12 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			$tag = 'A' ;
 			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			$default_element_rendering = ' (no elements)' unless @{$element} ;
+			
+			if(@{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+				{
+				my $plural = scalar(@{$element}) ? 's' : '' ;
+				$default_element_rendering .= ' (' . @{$element} . ' element' . $plural . ')' ; 
+				}
 			last ;
 			} ;
 			
@@ -559,7 +636,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			local $Text::Wrap::columns  = $columns ;
 			local $Text::Wrap::unexpand = 0 ;
 			
-			if(length($tree_header) + length($element_description) > $columns)
+			if(length($tree_header) + length($element_description) > $columns && ! $setup->{NO_WRAP})
 				{
 				$output .= wrap
 						(
@@ -943,7 +1020,7 @@ return(\@stack_dump);
 __END__
 =head1 NAME
 
-Data::TreeDumper - Visually improved data structure dumper. Powerful filtering capability.
+Data::TreeDumper - Improved replacement for Data::Dumper. Powerful filtering capability.
 
 =head1 SYNOPSIS
 
@@ -1068,20 +1145,16 @@ B<O>: Object,
 
 =head2 Empty Hash or Array
 
-No structure is displayed for empty hashes or arrays, The address contains the type.
+No structure is displayed for empty hashes or arrays, the string "no elements" is added to the display.
 
   |- A [S10] = string
-  |- EMPTY_ARRAY [A11]
+  |- EMPTY_ARRAY (no elements) [A11]
   |- B [S12] = 123
   
 =head1 Configuration and Overrides
 
 Data::TreeDumper has configuration options you can set to modify the output it
-generates. How to set the options depends on which L<Interface> you use and is explained below.
-The configuration options are available in all the Interfaces and are the I<Native>
-interface arguments.
-
-The package and object oriented interface take overrides as trailing arguments. Those
+generates. I<DumpTree> take overrides as trailing arguments. Those
 overrides are active within the current dump call only.
 
   ex:
@@ -1093,6 +1166,15 @@ overrides are active within the current dump call only.
   # maximum depth is 2
   print DumpTree($s, 'title') ;
   
+=head2 NO_PACKAGE_SETUP
+
+Sometimes, the package setup you have is not what you want to use. resetting the variable,
+making a call and setting the variables back is borring. You can set B<NO_PACKAGE_SETUP> to
+1 and I<DumpTree> will ignore the package setup for the call.
+
+  print Data::TreeDumper::DumpTree($s, "Using package data") ;
+  print Data::TreeDumper::DumpTree($s, "Not Using package data", NO_PACKAGE_SETUP => 1) ;
+
 =head2 DISPLAY_ROOT_ADDRESS
 
 By default, B<Data::TreeDumper> doesn't display the address of the root.
@@ -1138,6 +1220,18 @@ Setting this option will show the perl-address of the dumped data.
   DISPLAY_PERL_ADDRESS => 1 
   
 See also the excellent B<Devel::Size::Report> from which I stole the idea.
+
+=head2 REPLACEMENT_LIST
+
+Scalars may contain non printable characters that you rather not see in a dump. One of the
+most common is "\r" embedded in text string from dos files. B<PBS>, by default, replaces "\n" by
+'[\n]' and "\r" by '[\r]'. You can set REPLACEMENT_LIST to an array ref containing elements which
+are themselves array references. The first element is the character(s) to match and the second is
+the replacement.
+
+  # a fancy and stricter replacement for \n and \r
+  my $replacement = [ ["\n" => '[**Fancy \n replacement**]'], ["\r" => '\r'] ] ;
+  print DumpTree($smed->{TEXT}, 'Text:', REPLACEMENT_LIST => $replacement) ;
 
 =head2 QUOTE_HASH_KEYS
 
@@ -1196,6 +1290,10 @@ The filter returns the node's type, an eventual new structure (see below) and a 
 
 
 In Perl:
+		die $@ if $@ ;
+		}
+	else
+		{
 
   ($tree_type, $replacement_tree, @nodes_to_display) = $your_filter->($tree, $level, $path, $nodes_to_display, $setup) ;
 
@@ -1502,7 +1600,7 @@ START_LEVEL => 1:
   |  `- d [R5]
   |     `- REF(0x8139fb8) [R5 -> C3]
   |- ARRAY [A6]
-  |  |- 0 [S7] = elment_1
+  |  |- 0 [S7] = element_1
   |  |- 1 [S8] = element_2
   
 START_LEVEL => 0:
@@ -1515,7 +1613,7 @@ START_LEVEL => 0:
   `- d [R5]
      `- REF(0x8139fb8) [R5 -> C3]
   ARRAY [A6]
-  |- 0 [S7] = elment_1
+  |- 0 [S7] = element_1
   |- 1 [S8] = element_2
   
 =head2 ASCII vs ANSI
@@ -1532,6 +1630,13 @@ means there is no maximum depth. This is useful to limit the amount of data disp
 
   MAX_DEPTH => 1 
 	
+=head2 Number of elements not displayed because of maximum depth limit
+
+Data::TreDumper will display the number of elements a has or array has but that can not be displayed
+because of the maximum depth setting.
+
+  DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => 1
+
 =head2 Indentation
 
 Every line of the tree dump will be appended with the value of I<INDENTATION>.
@@ -1636,6 +1741,7 @@ wrapped multiple times so they snuggly fit your screen.
   |    Long_name Long_name Long_name Long_name Long_name Long_name
   |    Long_name Long_name Long_name Long_name Long_name [S26] = 0
 
+You can direct DTD to not wrap your text by setting B<NO_WRAP => 1>.
 =head1 Custom Rendering
 
 B<Data::TreeDumper> has a plug-in interface for other rendering formats. The renderer callbacks are
@@ -1792,6 +1898,8 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 
 =item * QUOTE_HASH_KEYS
 
+=item * REPLACEMENT_LIST
+
 =item * START_LEVEL 
 
 =item * USE_ASCII 
@@ -1891,6 +1999,8 @@ I<try_it.pl> is meant as a scratch pad for you to try B<Data::TreeDumper>.
 
 B<Text::Wrap>.
 
+B<Term::Size> or B<Win32::Console>.
+
 Optional B<Devel::Size> if you want Data::TreeDumper to show perl sizes for the tree elements.
 
 =head1 EXPORT
@@ -1903,7 +2013,7 @@ Khemir Nadim ibn Hamouda. <nadim@khemir.net>
 
 Thanks to Ed Avis for showing interest and pushing me to re-write the documentation.
 
-  Copyright (c) 2003 Nadim Ibn Hamouda el Khemir. All rights
+  Copyright (c) 2003-2005 Nadim Ibn Hamouda el Khemir. All rights
   reserved.  This program is free software; you can redis-
   tribute it and/or modify it under the same terms as Perl
   itself.
