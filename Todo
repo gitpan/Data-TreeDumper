@@ -1,4 +1,8 @@
 
+make it visible when a node has sub levels but MAX_DEPTH stops its display
+
+Handle data that contains "\n" and make the output look bad.
+
 #Hash keys quoting
 
 #More control over the glyphs and their color/numbering

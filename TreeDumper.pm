@@ -19,7 +19,7 @@ our %EXPORT_TAGS =
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
-our $VERSION = '0.17' ;
+our $VERSION = '0.18' ;
 
 my $WIN32_CONSOLE ;
 
@@ -231,28 +231,31 @@ EOE
 		die "Data::TreeDumper couldn't load renderer '$setup->{RENDERER}{NAME}':\n$@" if $@ ;
 		}
 		
-	if(defined $setup->{RENDERER}{BEGIN})
+	unless($setup->{NO_OUTPUT})
 		{
-		my $root_address = '' ;
-		$root_address = GetReferenceType($tree) . '0' if($setup->{DISPLAY_ROOT_ADDRESS}) ;
-		
-		my $perl_address = '' ;
-		$perl_address = $tree                         if($setup->{DISPLAY_PERL_ADDRESS}) ;
-		
-		my $perl_size = '' ;
-		$perl_size = total_size($tree)                if($setup->{DISPLAY_PERL_SIZE}) ;
-		
-		$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE}, $root_address, $tree, $perl_size, $perl_address, $setup) ;
-		}
-	else
-		{
-		$output = $setup->{INDENTATION} ;
-		
-		$output .= defined $setup->{TITLE} ? $setup->{TITLE} : '' ;
-		$output .= '[' . GetReferenceType($tree) . "0]" if($setup->{DISPLAY_ROOT_ADDRESS}) ;
-		$output .= " $tree"                             if($setup->{DISPLAY_PERL_ADDRESS}) ;
-		$output .= " <" . total_size($tree) . ">"       if($setup->{DISPLAY_PERL_SIZE}) ;
-		$output .= "\n" ;
+		if(defined $setup->{RENDERER}{BEGIN})
+			{
+			my $root_address = '' ;
+			$root_address = GetReferenceType($tree) . '0' if($setup->{DISPLAY_ROOT_ADDRESS}) ;
+			
+			my $perl_address = '' ;
+			$perl_address = $tree                         if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			
+			my $perl_size = '' ;
+			$perl_size = total_size($tree)                if($setup->{DISPLAY_PERL_SIZE}) ;
+			
+			$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE}, $root_address, $tree, $perl_size, $perl_address, $setup) ;
+			}
+		else
+			{
+			$output = $setup->{INDENTATION} ;
+			
+			$output .= defined $setup->{TITLE} ? $setup->{TITLE} : '' ;
+			$output .= ' [' . GetReferenceType($tree) . "0]" if($setup->{DISPLAY_ROOT_ADDRESS}) ;
+			$output .= " $tree"                              if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			$output .= " <" . total_size($tree) . ">"        if($setup->{DISPLAY_PERL_SIZE}) ;
+			$output .= "\n" ;
+			}
 		}
 	}
 
@@ -353,7 +356,9 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 			my $value = defined $element ? $element : 'undef' ;
 			$element_address = $element_id ; # OK for terminal nodes
+			
 			$element_value = "$value" ;
+			$element_value =~ s/\n/[\\n]/g ;
 			
 			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			last ;
@@ -518,11 +523,22 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			my $tree_subsequent_header = $setup->{INDENTATION} . $level_text . $previous_level_separator . $subsequent_separator ;
 			
 			my $element_description = $element_name ;
-			$element_description .= " = $element_value" if $element_value ne '' ;
+			
+			if('S' eq $tag)
+				{
+				if($setup->{QUOTE_VALUES})
+					{
+					$element_description .= " = '$element_value'" ;
+					}
+				else
+					{
+					$element_description .= " = $element_value" ;
+					}
+				}
 			
 			$perl_size = " <$perl_size> " unless $perl_size eq '' ;
 			
-			$element_description .= "$address_field$perl_size$perl_address\n" ;
+			$element_description .= " $address_field$perl_size$perl_address\n" ;
 			
 			my ($columns, $rows) ;
 			if($^O ne 'MSWin32')
@@ -628,6 +644,13 @@ if($tree =~ /=/)
 			} ;
 			
 		/=GLOB/ and do
+			{
+			@nodes_to_display = (0) ;
+			$tree_type = 'REF' ;
+			last ;
+			} ;
+			
+		/=SCALAR/ and do
 			{
 			@nodes_to_display = (0) ;
 			$tree_type = 'REF' ;
@@ -863,7 +886,51 @@ return
 	) ;
 }
 
-#----------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+sub GetCallerStack
+{
+my $level_to_dump = shift || 1_000_000;
+my $current_level = 1 ; # skip this function 
+
+my @stack_dump ;
+
+while ($current_level < $level_to_dump) 
+	{
+	my  ($package, $filename, $line, $subroutine, $has_args, $wantarray,
+	    $evaltext, $is_require, $hints, $bitmask) = eval " package DB ; caller($current_level) ;" ;
+	    
+	last unless defined $package;
+	
+	my %stack ;
+	$stack{$subroutine}{EVAL}            = 'yes'       if($subroutine eq '(eval)') ;
+	$stack{$subroutine}{EVAL}            = $evaltext   if defined $evaltext ;
+	$stack{$subroutine}{ARGS}            = [@DB::args] if($has_args) ;
+	$stack{$subroutine}{'REQUIRE-USE'}   = 'yes'       if $is_require ;
+	$stack{$subroutine}{CONTEXT}         = defined $wantarray ? $wantarray ? 'list' : 'scalar' : 'void' ;
+	$stack{$subroutine}{CALLERS_PACKAGE} = $package ;
+	$stack{$subroutine}{AT}              = "$filename:$line" ;
+	
+	unshift @stack_dump, \%stack ;
+	$current_level++;
+	}
+
+# usage example
+#~ print DumpTree
+	#~ (
+	  #~ (GetCallerStack())->[4]
+	#~ , 'Stack dump:'
+	#~ , DISPLAY_ADDRESS => 1
+	#~ , MAX_DEPTH => 5
+	#~ , DISPLAY_OBJECT_TYPE => 0
+	#~ , USE_ASCII => 1
+	#~ , QUOTE_VALUES => 1
+	#~ ) ;
+
+return(\@stack_dump);
+}
+
+#-------------------------------------------------------------------------------
 
 1 ;
 
@@ -1080,6 +1147,15 @@ the hash keys. Hash keys are not quoted by default.
      |  |- 'a' [H3]
      |  |- 'b' [H4]
      |  |  |- 'a' = 0 [S5]
+
+=head2 QUOTE_VALUES
+
+B<QUOTE_VALUES> and its package variable B<$Data::TreeDumper::Quotevalues> can be set if you wish to single quote
+the scalar values.
+
+  DumpTree(\$s, 'Cells:', QUOTE_VALUES=> 1) ;
+  
+  # output
 
 =head2 NO_OUTPUT
 

@@ -1,17 +1,18 @@
 Data/TreeDumper version
 ========================
 
-Version 0.17
+Version 0.18
 
 Data::TreeDumper dumps any data structure. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-	CHANGED: 'hash keys are sorted' added to the documentation
-	CHANGED: Renderer interface
-
+	FIXED: '= ' was missing when the scalara was eq ''
+	ADDED: QUOTE_VALUES
+	FIXED: handles blessed scalar references
+	FIXED: NO_OUTPUT still displayed the title
+	
 Ex:
-
 my $tree = { ... } ;
 print DumpTree($tree, 'Tree:') ;
 

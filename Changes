@@ -1,5 +1,11 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.18  
+	FIXED: '= ' was missing when the scalara was eq ''
+	ADDED: QUOTE_VALUES
+	FIXED: handles blessed scalar references
+	FIXED: NO_OUTPUT still displayed the title
+
 0.17  Thu Sep 30 20:00:00 2004
 	CHANGED: 'hash keys are sorted' added to the documentation
 	CHANGED: Renderer interface
