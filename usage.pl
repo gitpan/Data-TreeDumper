@@ -5,6 +5,7 @@ use warnings ;
 use Carp ;
 
 use Data::TreeDumper ;
+use Data::TreeDumper::OO ;
 use Data::Dumper ;
 
 my $sub = sub {} ;
@@ -61,7 +62,7 @@ print Data::TreeDumper::DumpTree($s, "Using package data with override", MAX_DEP
 # OO interface
 #-------------------------------------------------------------------
 
-my $dumper = new Data::TreeDumper() ;
+my $dumper = new Data::TreeDumper::OO() ;
 $dumper->UseAnsi(1) ;
 $dumper->SetMaxDepth(2) ;
 $dumper->SetVirtualWidth(80) ;
@@ -69,44 +70,36 @@ $dumper->SetFilter(\&Data::TreeDumper::HashKeysSorter) ;
 
 print $dumper->Dump($s, "Using OO interface") ;
  
-#-------------------------------------------------------------------
-# native interface
-#-------------------------------------------------------------------
 
-print Data::TreeDumper::TreeDumper
+print DumpTrees
 	(
-	  $s
-	, {
-	    FILTER        => \&Data::TreeDumper::HashKeysSorter
-	  , START_LEVEL   => 0
-	  , USE_ASCII     => 1
-	  , MAX_DEPTH     => 2
-	  , VIRTUAL_WIDTH => 80
-	  , TITLE         => "Using Native interface start level = 0"
-	  }
-	) ;
-	
-print Data::TreeDumper::TreeDumper
-	(
-	  $s
-	, {
-	    FILTER      => \&Data::TreeDumper::HashKeysSorter
-	  , START_LEVEL => 1
-	  , USE_ASCII   => 1
-	  , TITLE       => "Using Native interface"
-	  }
+	  [$s, "DumpTrees1", MAX_DEPTH => 1]
+	, [$s, "DumpTrees2", MAX_DEPTH => 2]
+	, USE_ASCII => 1
 	) ;
 
-#~ print DumpTrees
-	#~ (
-	  #~ [$s, "Using package data", MAX_DEPTH => 1]
-	#~ , [$s, "Using package data", MAX_DEPTH => 2]
-	#~ , USE_ASCII => 1
-	#~ ) ;
+print $dumper->DumpMany
+	(
+	  [$s, "DumpMany1", MAX_DEPTH => 1]
+	, [$s, "DumpMany2", MAX_DEPTH => 2, USE_ASCII => 0]
+	, USE_ASCII => 1
+	) ;
 
-#~ print $dumper->DumpMany
-	#~ (
-	  #~ [$s, "Using package data", MAX_DEPTH => 1]
-	#~ , [$s, "Using package data", MAX_DEPTH => 2]
-	#~ , USE_ASCII => 1
-	#~ ) ;
+
+#-------------------------------------------------------------------
+# Renderers
+#-------------------------------------------------------------------
+
+# simple ASCII dump
+print DumpTree($s, 'ASCII:', RENDERER => 'ASCII') ;
+
+# DHTML rendering
+my $dump =  DumpTree($s, 'DHTML:', RENDERER => 'DHTML') ;
+
+$| = 1 ;
+print "15 first lines of the DHTML dump:\n" ;
+print ((split(/(\n)/, $dump))[0 .. 29]) ;
+
+# un existant rendering
+DumpTree($s, 'unexistant!', RENDERER => 'UNEXISTANT') ;
+

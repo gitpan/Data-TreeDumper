@@ -1,16 +1,21 @@
-Data/TreeDumper version 0.13
-============================
+Data/TreeDumper version
+========================
 
-Version 0.13
+Version 0.14
 
-Data::TreeDumper dumps a data structure in tree fasion. Try the examples
+Data::TreeDumper dumps any data structure in tree fasion. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
 
-Fixed:
-- Should run under Windows (please let me know if it doesn't)
-- Added NO_OUTPUT (see documentation for iterator example)
+        CHANGED: the documentation slightly
+	ADDED: DISPLAY_OBJECT_TYPE
+	CHANGED: TreeDumper is not exported anymore to eliminate recuring tests of setup variables.
+	CHANGED: refactored the dmper code
+	CHANGED: Separated OO interface
+	FIXED: perl address properly displayed for scalars
+	ADDED: RENDERER plug-in support and some examples
+	FIXED: doubled the dump speed by warping when necessary only
 
 Ex:
 

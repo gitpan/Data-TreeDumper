@@ -1,6 +1,16 @@
 Revision history for Perl extension Data::TreeDumper.
 
-0.13  Sun Jan 11 17:00:00 2004
+0.14  Sat Jun 26 19:30:00 2004
+        CHANGED: the documentation slightly
+	ADDED: DISPLAY_OBJECT_TYPE
+	CHANGED: TreeDumper is not exported anymore to eliminate recuring tests of setup variables.
+	CHANGED: refactored the dmper code
+	CHANGED: Separated OO interface
+	FIXED: perl address properly displayed for scalars
+	ADDED: RENDERER plug-in support and some examples
+	FIXED: doubled the dump speed by warping when necessary only
+	
+0.13  ???  2004
         FIXED: Win32 compatibility
         ADDED: NO_OUTPUT
         ADDED: documentation about using D::TD as a structure iterator

@@ -38,8 +38,8 @@ my @colors = map
 
 sub ColorLevels
 {
-my $level = shift ;
-my $index = $level % @colors ;
+my $level   = shift ;
+my $index   = $level % @colors ;
 
 return($colors[$index], '') ;
 }
@@ -50,8 +50,8 @@ print Term::ANSIColor::color('reset') ;
 
 sub ColorLevelsGlyphs
 {
-my $level = shift ;
-my $index = $level % @colors ;
+my $level   = shift ;
+my $index   = $level % @colors ;
 
 return($colors[$index], Term::ANSIColor::color('reset')) ;
 }

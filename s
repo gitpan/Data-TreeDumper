@@ -1,11 +1,12 @@
 $s = {
+  'STDIN' => \*STDIN,
+  'RS' => \4,
+  
   'A' => {
     'a' => {},
-    'c123' => sub { "DUMMY" },
-    'd' => \do{my $o},
-    'bbbbbb' => do{my $o},
+    'code1' => sub { "DUMMY" },
     'b' => {
-      'a' => 1,
+      'a' => 0,
       'b' => 1,
       'c' => {
         'a' => 1,
@@ -24,7 +25,8 @@ $s = {
       'a' => {
         'c' => 42,
         'a' => {},
-        'b' => sub { "DUMMY" }
+        'b' => sub { "DUMMY" },
+	'empty' => undef
       }
     }
   },
@@ -36,9 +38,14 @@ $s = {
     {a => 1, b => 2}
   ]
 };
-${$s->{'A'}{'d'}} = $s->{'A'}{'c123'};
-$s->{'A'}{'bbbbbb'} = $s->{'A'}{'c123'};
+${$s->{'A'}{'code3'}} = $s->{'A'}{'code1'};
+$s->{'A'}{'code2'} = $s->{'A'}{'code1'};
 $s->{'CopyOfARRAY'} = $s->{'ARRAY'};
+$s->{'C1'} = \($s->{'C2'});
+$s->{'C2'} = \($s->{'C1'});
 
 $s->{za} = '';
+
+$object = bless {A =>[], B => 123}, 'SuperObject' ;
+$s->{object} = $object ;
 
