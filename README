@@ -1,8 +1,15 @@
-Data/TreeDumper version 0.09
+Data/TreeDumper version 0.10
 ============================
+
+Version 0.10
 
 Data::TreeDumper dumps a data structure in tree fasion. Try the examples
 that come with Data::TreeDumper.
+
+In this release:
+- Fixed a little but very ennoying bug that added a spurious "\n"
+- Added support for level numbering/tagging and coloring
+- New examples
 
 Ex:
 
@@ -54,3 +61,4 @@ COPYRIGHT AND LICENCE
 
 If you find any value in this module, mail me!  All hints, tips, flammes and wishes
 are welcome at <nadim@khemir.net>.
+

@@ -106,4 +106,3 @@ my $tree_dumper = new Data::TreeDumper;
 
 print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", DISPLAY_ROOT_ADDRESS => 1) ;
 #~ print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", INDENTATION => '  ', FILTER => \&Data::TreeDumper::HashKeysSorter) ;
-

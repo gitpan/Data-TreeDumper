@@ -73,6 +73,39 @@ return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 print Data::TreeDumper::DumpTree($s, "Entries matching /^a/i have '*' prepended", FILTER => \&StarOnA) ;
 
 #-------------------------------------------------------------------------------
+# level numbering and tagging
+#-------------------------------------------------------------------------------
+
+print Data::TreeDumper::DumpTree($s, "Level numbering", NUMBER_LEVELS => 2) ;
+
+sub GetLevelTagger
+{
+my $level_to_tag = shift ;
+
+sub 
+	{
+	my ($tree, $level, $nodes_to_display, $setup) = @_ ;
+	
+	my $tag = "Level $level_to_tag: ";
+	
+	if($level == 0) 
+		{
+		return($tag) ;
+		}
+	else
+		{
+		return(' ' x length($tag)) ;
+		}
+	} ;
+}
+
+print Data::TreeDumper::DumpTree($s, "Level tagging", NUMBER_LEVELS => GetLevelTagger(0)) ;
+
+#-------------------------------------------------------------------------------
+# Coloring : see examples in color.pl
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
 # tree replacement
 #-------------------------------------------------------------------------------
 

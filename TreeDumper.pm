@@ -19,7 +19,7 @@ our %EXPORT_TAGS =
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
 our @EXPORT = qw(DumpTree CreateChainingFilter);
-our $VERSION = '0.09' ;
+our $VERSION = '0.10' ;
 
 use Term::Size;
 use Text::Wrap  ;
@@ -36,6 +36,8 @@ our $Filter             = undef ;
 our $Virtualwidth       = 120 ; 
 our $Displayrootaddress = 0 ;
 our $Displayaddress     = 1 ;
+our $Numberlevels       = 0 ;
+our $Colorlevels        = undef ;
 
 #~ our $Deparse    = 0 ;  # not implemented 
 
@@ -58,10 +60,12 @@ return
 			  , USE_ASCII            => $Useascii
 			  , MAX_DEPTH            => $Maxdepth
 			  , INDENTATION          => $Indentation
-			  , TITLE                => $title . "\n" 
+			  , TITLE                => $title
 			  , VIRTUAL_WIDTH        => $Virtualwidth
 			  , DISPLAY_ROOT_ADDRESS => $Displayrootaddress
 			  , DISPLAY_ADDRESS      => $Displayaddress
+			  , NUMBER_LEVELS        => $Numberlevels
+			  , COLOR_LEVELS         => $Colorlevels
 			  , %override
 			  }
 			)
@@ -86,6 +90,8 @@ my($self) =
 	, VIRTUAL_WIDTH        => 120
 	, DISPLAY_ROOT_ADDRESS => 0
 	, DISPLAY_ADDRESS      => 1
+	, NUMBER_LEVELS        => undef
+	, COLOR_LEVELS         => undef
 	, @setup_data
 	};
 
@@ -149,6 +155,18 @@ my($self, $display_address) = @_ ;
 $self->{DISPLAY_ADDRESS} = $display_address ;
 }
 
+sub NumberLevels
+{
+my($self, $number_levels) = @_ ;
+$self->{NUMBER_LEVELS} = $number_levels;
+}
+
+sub ColorLevels
+{
+my($self, $color_levels) = @_ ;
+$self->{COLOR_LEVELS} = $color_levels ;
+}
+
 sub Dump
 {
 my($self, $structure_to_dump, $title, %override) = @_;
@@ -169,6 +187,8 @@ return
 			  , VIRTUAL_WIDTH        => $self->{VIRTUAL_WIDTH}
 			  , DISPLAY_ROOT_ADDRESS => $self->{DISPLAY_ROOT_ADDRESS}
 			  , DISPLAY_ADDRESS      => $self->{DISPLAY_ADDRESS}
+			  , NUMBER_LEVELS        => $self->{NUMBER_LEVELS}
+			  , COLOR_LEVELS         => $self->{COLOR_LEVELS}
 			  , TITLE                => $title
 			  , %override
 			  }
@@ -199,6 +219,8 @@ my $indentation          = $setup->{INDENTATION} ;
 my $virtual_width        = $setup->{VIRTUAL_WIDTH} ;
 my $display_root_address = $setup->{DISPLAY_ROOT_ADDRESS} ;
 my $display_address      = $setup->{DISPLAY_ADDRESS} ;
+my $number_levels        = $setup->{NUMBER_LEVELS} ;
+my $color_levels         = $setup->{COLOR_LEVELS} ;
 
 $start_level = 0   unless defined $start_level ;
 $use_ascii   = 1   unless defined $use_ascii ;
@@ -218,7 +240,7 @@ my ($replacement_tree, $nodes_to_display) ;
 
 if(defined $filter_sub)
 	{
-	($tree_type, $replacement_tree, @$nodes_to_display) = $filter_sub->($tree, $level, $nodes_to_display) ;
+	($tree_type, $replacement_tree, @$nodes_to_display) = $filter_sub->($tree, $level, $nodes_to_display, $setup) ;
 	$tree = $replacement_tree if(defined $replacement_tree) ;
 	}
 else
@@ -268,6 +290,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 				, $nodes_left
 				, $levels_left
 				, $start_level
+				, $color_levels
 				) ;
 				
 	$levels_left->[$level] = $nodes_left ;
@@ -330,10 +353,39 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			, $levels_left
 			, $already_displayed_nodes
 			) ;
+			
+	my $level_text = '' ;
+	if($number_levels)
+		{
+		if('CODE' eq ref $number_levels)
+			{
+			$level_text = $number_levels->($element, $level, $setup) ;
+			}
+		else
+			{
+			my ($color_start, $color_end) = ('', '') ;
+			
+			if($color_levels)
+				{
+				if('ARRAY' eq ref $color_levels)
+					{
+					my $color_index = $level % @{$color_levels->[0]} ;
+					($color_start, $color_end) = ($color_levels->[0][$color_index] , $color_levels->[1]) ;
+					}
+				else
+					{
+					# assume code
+					($color_start, $color_end) = $color_levels->($level) ;
+					}
+				}
+			$level_text = sprintf("$color_start%${number_levels}d$color_end ", ($level + 1)) ;
+			}
+		}
+		
+	my $tree_header            = $indentation . $level_text . $previous_level_separator . $separator  ;
+	my $tree_subsequent_header = $indentation . $level_text . $previous_level_separator . $subsequent_separator ;
 	
-	my $tree_header            = $indentation . $previous_level_separator . $separator  ;
-	my $tree_subsequent_header = $indentation . $previous_level_separator . $subsequent_separator ;
-	
+		
 	for(ref $element)
 		{
 		'' eq $_ and do
@@ -343,7 +395,8 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			$already_displayed_nodes->{$element_ref} = 'S' . $already_displayed_nodes->{NEXT_INDEX} ;
 			$already_displayed_nodes->{NEXT_INDEX}++ ;
 			
-			my $address = "[$already_displayed_nodes->{$element_ref}] " if $display_address ;
+			my $address = '' ;
+			$address = "[$already_displayed_nodes->{$element_ref}] " if $display_address ;
 			
 			$output .= wrap
 						(
@@ -679,22 +732,42 @@ my
 	, $is_last_in_level
 	, $levels_left
 	, $start_level
+	, $colors # array or code ref
 	) = @_ ;
 	
 my $separator_size = 0 ;
 my $previous_level_separator = '' ;
+my ($color_start, $color_end) = ('', '') ;
 	
-for ((1 - $start_level) .. ($level - 1))
+for my $current_level ((1 - $start_level) .. ($level - 1))
 	{
 	$separator_size += 3 ;
 	
-	if($levels_left->[$_] == 0)
+	if($colors)
 		{
-		$previous_level_separator .= '   ' ;
+		if('ARRAY' eq ref $colors)
+			{
+			my $color_index = $current_level % @{$colors->[0]} ;
+			($color_start, $color_end) = ($colors->[0][$color_index] , $colors->[1]) ;
+			}
+		else
+			{
+			if('CODE' eq ref $colors)
+				{
+				($color_start, $color_end) = $colors->($current_level) ;
+				}
+			#else
+				# ignore other types
+			}
+		}
+		
+	if($levels_left->[$current_level] == 0)
+		{
+		$previous_level_separator .= "$color_start   $color_end" ;
 		}
 	else
 		{
-		$previous_level_separator .= '|  ' ;
+		$previous_level_separator .= "$color_start|  $color_end" ;
 		}
 	}
 	
@@ -705,15 +778,29 @@ $separator_size += 3 ;
 
 if($level > 0 || $start_level)	
 	{
+	if($colors)
+		{
+		if('ARRAY' eq ref $colors)
+			{
+			my $color_index = $level % @{$colors->[0]} ;
+			($color_start, $color_end) = ($colors->[0][$color_index] , $colors->[1]) ;
+			}
+		else
+			{
+			# assume code
+			($color_start, $color_end) = $colors->($level) ;
+			}
+		}
+		
 	if($is_last_in_level == 0)
 		{
-		$separator            = '`- ' ;
-		$subsequent_separator = '   ' ;
+		$separator            = "$color_start`- $color_end" ;
+		$subsequent_separator = "$color_start   $color_end" ;
 		}
 	else
 		{
-		$separator            = '|- ' ;
-		$subsequent_separator = '|  '  ;
+		$separator            = "$color_start|- $color_end" ;
+		$subsequent_separator = "$color_start|  $color_end"  ;
 		}
 	}
 	
@@ -795,8 +882,8 @@ Data::TreeDumper - dumps a data structure in a tree fashion.
   $Data::TreeDumper::Maxdepth = 2 ;
   $Data::TreeDumper::Filter   = \&Data::TreeDumper::HashKeysSorter ;
   
-  print Data::TreeDumper::DumpTree($s, 'title') ;
-  print Data::TreeDumper::DumpTree($s, 'title', MAX_DEPTH => 1) ;
+  print DumpTree($s, 'title') ;
+  print DumpTree($s, 'title', MAX_DEPTH => 1) ;
   
   #-------------------------------------------------------------------
   # OO interface
@@ -849,7 +936,7 @@ Data::TreeDumper - dumps a data structure in a tree fashion.
 
 Data::Dumper and other modules do a great job at dumping data structure but their output sometime takes more
 brain to understand than it takes to understand the data itself. When dumping big amounts of data, the output
-is overwelming and it's difficult to see the relationship between each piece of the dumped data.
+is overwhelming and it's difficult to see the relationship between each piece of the dumped data.
 
 Data::TreeDumper dumps data in a trees like fashion I<hopping> for the output to be easier on the beholder's eye 
 and brain. But it might as well be the opposite!
@@ -857,7 +944,7 @@ and brain. But it might as well be the opposite!
 =head2 Address
 
 Each node in the tree has a type (see L<Types> bellow) and an address associated with it. The type and address are displayed to
-the right of the entry name within square brackets. The adresses are linearely incremented which should make it easier to locate data.
+the right of the entry name within square brackets. The addresses are linearly incremented which should make it easier to locate data.
 If the entry is a reference to data already displayed, a B<->> is prepended to the entry's address.
 
   |  |- bbbbbb = CODE(0x8139fa0) [C3]
@@ -878,7 +965,7 @@ B<RS>: Scalar reference.
 
 =head2 Empty Hash or Array
 
-No structure is displayed for empty hashes or arrays, The L<Address> contains the type.
+No structure is displayed for empty hashes or arrays, The address contains the type.
 
   |- A [S10] = string
   |- EMPTY_ARRAY [A11]
@@ -898,10 +985,10 @@ overrides are active within the current dump call only.
   $Data::TreeDumper::Maxdepth = 2 ;
   
   # maximum depth set to 1 for the duration of the call only
-  print Data::TreeDumper::DumpTree($s, 'title', MAX_DEPTH => 1) ;
+  print DumpTree($s, 'title', MAX_DEPTH => 1) ;
 	
   # maximum depth is 2
-  print Data::TreeDumper::DumpTree($s, 'title') ;
+  print DumpTree($s, 'title') ;
   
 =head2 DISPLAY_ROOT_ADDRESS
 
@@ -911,7 +998,7 @@ By default, B<Data::TreeDumper> doesn't display the address of the root.
   
 =head2 DISPLAY_ADDRESS
 
-When the dumped data are not self referential, displaying the address of each node cluters the display. You can
+When the dumped data are not self referential, displaying the address of each node clutters the display. You can
 direct B<Data::TreeDumper> to not display the node address by using:
 
   DISPLAY_ADDRESS => 0
@@ -984,7 +1071,10 @@ You only need to return such a reference for the entries you want to change thus
   return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
   }
 
-  print Data::TreeDumper::DumpTree($s, "Entries matching /^a/i have '*' prepended", FILTER => \&StarOnA) ;
+  print DumpTree($s, "Entries matching /^a/i have '*' prepended", FILTER => \&StarOnA) ;
+
+If you use an ansi terminal, you can also change the color of the label, this can greatly improve visual search time.
+See the I<label coloring> example in I<colors.pl>.
 
 =head3 Structure replacement
 
@@ -1007,14 +1097,14 @@ version of the structure. You can even change the type of the data structure, fo
   return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
   }
 
-  print Data::TreeDumper::DumpTree($s, 'replace arrays with hashes!', FILTER => \&ReplaceArray) ;
+  print DumpTree($s, 'replace arrays with hashes!', FILTER => \&ReplaceArray) ;
 
 =head3 filter chaining
 
 It is possible to chain filters. B<Data::TreeDumper> exports I<CreateChainingFilter>. I<CreateChainingFilter>
 takes a list of filtering sub references. The filters must properly handle the third parameter passed to them.
 
-Suppose you want to chaine a filter, that adds a star before each hash key label, with a filter 
+Suppose you want to chain a filter, that adds a star before each hash key label, with a filter 
 that removes all (original) keys that match /^a/i.
 
   sub AddStar
@@ -1130,6 +1220,62 @@ Every line of the tree dump will be appended with the value of I<INDENTATION>.
 
   INDENTATION => '   ' ;
 
+=head1 Level numbering and tagging
+
+Data:TreeDumper can prepend the level of the current line to the tree glyphs. This can be very useful when
+searching in tree dump either visually or with a pager.
+
+  NUMBER_LEVELS => 2
+  NUMBER_LEVELS => \&NumberingSub
+
+NUMBER_LEVELS can be assigned a number or a sub reference. When assigned a number, Data::TreeDumper will use that value to 
+define the width of the field where the level is displayed. For more control, you can define a sub that returns a string to be displayed
+on the left side of the tree glyphs. The example bellow tags all the nodes which level is zero.
+
+  print DumpTree($s, "Level numbering", NUMBER_LEVELS => 2) ;
+
+  sub GetLevelTagger
+  {
+  my $level_to_tag = shift ;
+  
+  sub 
+  	{
+  	my ($element, $level, $setup) = @_ ;
+  	
+  	my $tag = "Level $level_to_tag => ";
+  	
+  	if($level == 0) 
+  		{
+  		return($tag) ;
+  		}
+  	else
+  		{
+  		return(' ' x length($tag)) ;
+  		}
+  	} ;
+  }
+  
+  print DumpTree($s, "Level tagging", NUMBER_LEVELS => GetLevelTagger(0)) ;
+
+=head1 Level coloring
+
+Another way to enhance the output for easier searching is to colorize it. Data::TreeDumper can colorize the glyph elements or whole levels.
+If your terminal supports ANSI codes, using Term::ANSIColors and Data::TreeDumper together can greatly ease the reading of large dumps.
+See the examples in color.pl. 
+
+  COLOR_LEVELS => [\@color_codes, $reset_code]
+
+When passed an array reference, the first element is an array containing coloring codes. The codes are indexed
+with the node level modulo the size of the array. The second element is used to reset the color after the glyph is displayed. If the second 
+element is an empty string, the glyph and the rest of the level is colorized.
+
+  COLOR_LEVELS => \&LevelColoringSub
+
+If COLOR_LEVEL is assigned a sub, the sub is called for each glyph element. It should return a coloring code and a reset code. If you return an
+empty string for the reset code, the whole node is displayed using the last glyph element color.
+
+If level numbering is on, it is also colorized.
+
 =head1 Wrapping
 
 Data::TreeDumper uses the Text::Wrap module to wrap your data to fit your display. Entries can be
@@ -1144,9 +1290,9 @@ wrapped multiple times so they snuggly fit your screen.
   |    Long_name Long_name Long_name Long_name Long_name Long_name
   |    Long_name Long_name Long_name Long_name Long_name [S26] = 0
 
-=head1 Zero width consol
+=head1 Zero width console
 
-When no consol exists, while redirecting to a file for example, Data::TreeDumper uses the variable
+When no console exists, while redirecting to a file for example, Data::TreeDumper uses the variable
 B<VIRTUAL_WIDTH> instead. Default is 120.
 
 	VIRTUAL_WIDTH => 120 ;
@@ -1168,6 +1314,8 @@ object oriented interface and the native interface. All interfaces return a stri
   $Data:TreeDumper::Displayrootaddress = 0 ;
   $Data:TreeDumper::Displayaddress     = 1 ;
   $Data:TreeDumper::Filter             = \&FlipEverySecondOne ;
+  $Data:TreeDumper::Numberlevels       = 0 ;
+  $Data:TreeDumper::Colorlevels        = undef ;
   
 =head3 Function
 
@@ -1183,7 +1331,7 @@ B<DumpTree> uses the configuration variables defined above. It takes the followi
 	
 =back
 
-  print Data::TreeDumper::DumpTree($s, "title", MAX_DEPTH => 1) ;
+  print DumpTree($s, "title", MAX_DEPTH => 1) ;
 
 =head2 Object oriented Methods
 
@@ -1199,6 +1347,8 @@ B<DumpTree> uses the configuration variables defined above. It takes the followi
   $dumper->SetStartLevel(0) ;
   $dumper->DisplayRootAddress(1) ;
   $dumper->DisplayAddress(0) ;
+  $dumper->NumberLevels(2) ;
+  $dumper->ColorLevels(\&ColorLevelSub) ;
   
   $dumper->Dump($s, "Using OO interface", %OVERRIDES) ;
   	
@@ -1208,12 +1358,17 @@ B<DumpTree> uses the configuration variables defined above. It takes the followi
   	(
   	  $s
   	, {
-  	    FILTER      => \&Data::TreeDumper::HashKeysSorter
-  	  , START_LEVEL => 1
-  	  , USE_ASCII   => 0
-  	  , MAX_DEPTH   => 2
-  	  , TITLE       => "Using Native interface"
-  	  }
+  	    FILTER               => \&Data::TreeDumper::HashKeysSorter
+  	  , START_LEVEL          => 1
+  	  , USE_ASCII            => 0
+  	  , MAX_DEPTH            => 2
+  	  , TITLE                => "Using Native interface"
+  	  , DISPLAY_ROOT_ADDRESS => 0
+  	  , DISPLAY_ADDRESS      => 1
+	  , INDENTATION          => ''
+	  , NUMBER_LEVELS        => 0
+	  , COLOR_LEVELS         => undef
+  	}
   	) ;
   
 =head1 Bugs
@@ -1222,11 +1377,13 @@ None I know of in this release but plenty, lurking in the dark corners, waiting 
 
 =head1 Examples
 
-Three examples files are included in the distribution.
+Four examples files are included in the distribution.
 
 I<usage.pl> shows you how you can use B<Data::TreeDumper>.
 
 I<filters.pl> shows you how you how to do advance filtering.
+
+I<colors.pl> shows you how you how to colorize a dump.
 
 I<try_it.pl> is meant as a scratch pad for you to try B<Data::TreeDumper>.
 
@@ -1245,7 +1402,7 @@ Thanks to Ed Avis for showing interest and pushing me to re-write the documentat
   tribute it and/or modify it under the same terms as Perl
   itself.
   
-If you find any value in this module, mail me!  All hints, tips, flammes and wishes
+If you find any value in this module, mail me!  All hints, tips, flames and wishes
 are welcome at <nadim@khemir.net>.
 
 =head1 SEE ALSO

@@ -32,4 +32,13 @@ Revision history for Perl extension Data::TreeDumper.
 	CHANGED: the documentation
 	CHANGED: Native interface is not exported by default
 	
+0.091 Tue Oct 21 19:00:00 2003 # unreleased
+	FIXED: REmove '\n' from TITLE in sub DumpTree
 	
+
+0.10  Sat Nov 11 15:00:00 2003
+	ADDED: level numbering and tagging
+	ADDED: tagging examples in filter.pl
+	ADDED: level coloring
+	ADDED: coloring examples in colors.pl
+	RUN: aspell
