@@ -25,3 +25,11 @@ Revision history for Perl extension Data::TreeDumper.
 	ADDED: filter chaining
 	ADDED: completed the filter section in the documentation
 	ADDED: filtering example
+
+0.09  Sun Oct 19 19:00:00 2003
+	ADDED: DISPLAY_ROOT_ADDRESS and DISPlAY_ADDRESS
+	FIXED: data to display must be reference, test was erroneous
+	CHANGED: the documentation
+	CHANGED: Native interface is not exported by default
+	
+	

@@ -104,6 +104,6 @@ my $tree_dumper = new Data::TreeDumper;
 #~ $tree_dumper->UseAscii(0) ;
 #~ $tree_dumper->SetMaxDepth(2) ;
 
-print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", FILTER => \&Data::TreeDumper::HashKeysSorter) ;
-#~ print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", INDENTATION => '  ') ;
+print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", DISPLAY_ROOT_ADDRESS => 1) ;
+#~ print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", INDENTATION => '  ', FILTER => \&Data::TreeDumper::HashKeysSorter) ;
 

@@ -1,10 +1,15 @@
-Data/TreeDumper version 0.08
+Data/TreeDumper version 0.09
 ============================
 
 Data::TreeDumper dumps a data structure in tree fasion. Try the examples
 that come with Data::TreeDumper.
 
 Ex:
+
+my $tree = { ... } ;
+print DumpTree($tree, 'Tree:') ;
+
+#output
 
 Tree:
 |- A [H1]
@@ -47,3 +52,5 @@ COPYRIGHT AND LICENCE
   tribute it and/or modify it under the same terms as Perl
   itself.
 
+If you find any value in this module, mail me!  All hints, tips, flammes and wishes
+are welcome at <nadim@khemir.net>.
