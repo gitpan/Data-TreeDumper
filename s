@@ -31,7 +31,9 @@ $s = {
   'ARRAY' => [
     'elment_1',
     'element_2',
-    'element_3'
+    'element_3',
+    [1, 2],
+    {a => 1, b => 2}
   ]
 };
 ${$s->{'A'}{'d'}} = $s->{'A'}{'c123'};

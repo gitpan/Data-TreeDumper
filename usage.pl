@@ -5,6 +5,7 @@ use warnings ;
 use Carp ;
 
 use Data::TreeDumper ;
+use Data::Dumper ;
 
 my $sub = sub {} ;
 
@@ -41,6 +42,8 @@ my %tree =
 	) ;
 
 my $s = \%tree ;
+
+print Dumper($s) ;
 
 #-------------------------------------------------------------------
 # package global setup data

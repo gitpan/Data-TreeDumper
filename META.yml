@@ -1,0 +1,13 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Data-TreeDumper
+version:      0.13
+version_from: TreeDumper.pm
+installdirs:  site
+requires:
+    Devel::Size:                   0.58
+    Term::Size:                    0.2
+    Text::Wrap:                    2001.0929
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.21

@@ -1,54 +1,60 @@
 Revision history for Perl extension Data::TreeDumper.
 
-0.01  Fri Jun 13 00:40:58 2003
-	- original version; created by h2xs 1.21 with options
-		-X -n Data::TreeDumper
-
-0.05  Fri Jun 13 01:15:00 2003
-	CHANGED: Merged the version from PerlBuildSystem module
-	
-0.06  Mon Jun 30 01:30:00 2003
-	CHANGED: pass the title of the data structure as an argument
-	CHANGED: pass indentation to TreeDumper
-	CHANGED: Pass override args to DumpTree
-	CHANGED: export TreeDumper sub name
-
-0.07  Fri Oct 3 23:30:00 2003
-	FIXED: proper adressing
-	CHANGED: variable names to match Data:Dumper
-	ADDED: documentation
-	
-0.08  Fri Oct 10 18:00:00 2003
-	CHANGED: OO interface
-	FIXED: fixed redirection bug
-	ADDED: added virtual width
-	ADDED: filter chaining
-	ADDED: completed the filter section in the documentation
-	ADDED: filtering example
-
-0.09  Sun Oct 19 19:00:00 2003
-	ADDED: DISPLAY_ROOT_ADDRESS and DISPlAY_ADDRESS
-	FIXED: data to display must be reference, test was erroneous
-	CHANGED: the documentation
-	CHANGED: Native interface is not exported by default
-	
-0.091 Tue Oct 21 19:00:00 2003 # unreleased
-	FIXED: REmove '\n' from TITLE in sub DumpTree
-	
-0.10  Sat Nov 11 15:00:00 2003
-	ADDED: level numbering and tagging
-	ADDED: tagging examples in filter.pl
-	ADDED: level coloring
-	ADDED: coloring examples in colors.pl
-	RUN: aspell
-	
-0.11  Wedt Dec 10 22:00:00 2003
-	CHANGED: documentation about label
-	ADDED: DumpTrees and DumpMany
+0.13  Sun Jan 11 17:00:00 2004
+        FIXED: Win32 compatibility
+        ADDED: NO_OUTPUT
+        ADDED: documentation about using D::TD as a structure iterator
+        CHANGED: this documentation format
 	
 0.12  Sun Jan 11 17:00:00 2004
-	ADDED: Level filters
-	FIXED: default value for object filter was the package filter (was that a good move?)
-	ADDED: DISPLAY_PERL_SIZE, DISPLAY_ROOT_PERL_SIZE
-	ADDED: filter path, might break older advanced filters
-	
+        ADDED: Level filters
+        FIXED: default value for object filter was the package filter (was that a good move?)
+        ADDED: DISPLAY_PERL_SIZE, DISPLAY_ROOT_PERL_SIZE
+        ADDED: filter path, might break older advanced filters
+
+0.11  Wedt Dec 10 22:00:00 2003
+        CHANGED: documentation about label
+        ADDED: DumpTrees and DumpMany
+
+0.10  Sat Nov 11 15:00:00 2003
+        ADDED: level numbering and tagging
+        ADDED: tagging examples in filter.pl
+        ADDED: level coloring
+        ADDED: coloring examples in colors.pl
+        RUN: aspell
+
+0.091 Tue Oct 21 19:00:00 2003 # unreleased
+        FIXED: REmove '\n' from TITLE in sub DumpTree
+
+0.09  Sun Oct 19 19:00:00 2003
+        ADDED: DISPLAY_ROOT_ADDRESS and DISPlAY_ADDRESS
+        FIXED: data to display must be reference, test was erroneous
+        CHANGED: the documentation
+        CHANGED: Native interface is not exported by default
+
+0.08  Fri Oct 10 18:00:00 2003
+        CHANGED: OO interface
+        FIXED: fixed redirection bug
+        ADDED: added virtual width
+        ADDED: filter chaining
+        ADDED: completed the filter section in the documentation
+        ADDED: filtering example
+
+0.07  Fri Oct 3 23:30:00 2003
+        FIXED: proper adressing
+        CHANGED: variable names to match Data:Dumper
+        ADDED: documentation
+
+0.06  Mon Jun 30 01:30:00 2003
+        CHANGED: pass the title of the data structure as an argument
+        CHANGED: pass indentation to TreeDumper
+        CHANGED: Pass override args to DumpTree
+        CHANGED: export TreeDumper sub name
+
+0.05  Fri Jun 13 01:15:00 2003
+        CHANGED: Merged the version from PerlBuildSystem module
+
+0.01  Fri Jun 13 00:40:58 2003
+        - original version; created by h2xs 1.21 with options
+                -X -n Data::TreeDumper
+

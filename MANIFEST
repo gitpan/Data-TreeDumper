@@ -12,3 +12,4 @@ colors.pl
 try_it.pl
 TreeDumper.pm
 
+META.yml                                 Module meta-data (added by MakeMaker)

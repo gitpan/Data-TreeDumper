@@ -1,20 +1,16 @@
-Data/TreeDumper version 0.12
+Data/TreeDumper version 0.13
 ============================
 
-Version 0.12
+Version 0.13
 
 Data::TreeDumper dumps a data structure in tree fasion. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-New:
-- level filters
-- path filters, might break older (advanced) filters but it's worth it.
-- perl size display
-- perl address display
 
 Fixed:
-- dumper object had it's filter set to the package filter by default
+- Should run under Windows (please let me know if it doesn't)
+- Added NO_OUTPUT (see documentation for iterator example)
 
 Ex:
 
