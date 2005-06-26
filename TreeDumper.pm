@@ -19,7 +19,7 @@ our %EXPORT_TAGS =
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
-our $VERSION = '0.20' ;
+our $VERSION = '0.21' ;
 
 my $WIN32_CONSOLE ;
 
@@ -511,6 +511,9 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			{
 			$is_terminal_node++ ;
 			$tag = 'C' ;
+			
+			#~ use Data::Dump::Streamer;
+			#~ $element_value = "----- " . Dump($element)->Out() ;
 			$element_value = "$element" ;
 			$default_element_rendering= " = $element_value" ;
 			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
@@ -562,6 +565,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 	else	
 		{
 		$already_displayed_nodes->{$element_address} = $dtd_address ;
+		$already_displayed_nodes->{$element_address} .= " /$setup->{__DATA_PATH}" if $setup->{DISPLAY_PATH};
 		$already_displayed_nodes->{NEXT_INDEX}++ ;
 				
 		$address_field = " [$dtd_address]" if $setup->{DISPLAY_ADDRESS} ;
@@ -624,7 +628,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			my ($columns, $rows) ;
 			if($^O ne 'MSWin32')
 				{
-				($columns, $rows) = Term::Size::chars *STDOUT{IO} ;
+				eval "(\$columns, \$rows) = Term::Size::chars *STDOUT{IO} ;" ;
 				}
 			else
 				{
@@ -1187,6 +1191,15 @@ When the dumped data is not self-referential, displaying the address of each nod
 direct B<Data::TreeDumper> to not display the node address by using:
 
   DISPLAY_ADDRESS => 0
+
+=head2 DISPLAY_PATH
+
+Add the path of the element to the its address.
+
+  DISPLAY_PATH => 1
+  
+  ex: '- CopyOfARRAY  [A39 -> A18 /{'ARRAY'}]
+
 
 =head2 DISPLAY_OBJECT_TYPE
 

@@ -4,10 +4,12 @@ Add the possibility to prune self not only children
 Accept non reference input
 	=> implemented but not accepted yet
 
+#DISPLAY_PATH
+
 #show if a node has more sublevel but those will not be displayed because of MAX_DEPTH
 	=> with option
 
-	
+
 #NO_WRAP option
 
 #RESET => NO_PACKAGE_SETTINGS

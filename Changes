@@ -1,5 +1,9 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.21 :00:00 2005
+	ADDED: DISPLAY_PATH
+	FIXED: Finally got it tested and running on windows
+	
 0.20 Sun Jan 16 16:00:00 2005
 	FIXED: \n replacement missed \r (from dos files for example)
 	ADDED: a more generic replacement system via REPLACEMENT_LIST
