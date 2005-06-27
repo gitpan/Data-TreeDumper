@@ -1,18 +1,15 @@
 Data/TreeDumper version
 ========================
 
-Version 0.20 Sun Jan 16 16:00:00 2005
+Version 0.22  Tue Jun 28 0:00:00 2005
 
 Data::TreeDumper dumps any data structure. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-	FIXED: \n replacement missed \r (from dos files for example)
-	ADDED: a more generic replacement system via REPLACEMENT_LIST
-	ADDED: NO_WRAP
-	ADDED: show if a node has more sublevel but those will not be displayed because of MAX_DEPTH
-	ADDED: DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH
-	ADDED: NO_PACKAGE_SETUP
+	FIXED: missing DISPLAY_PATH in package setup
+	FIXED: minor documentation formating error
+	ADDED: DISPLAY_INHERITANCE, DISPLAY_TIE, DISPLAY_AUTOLOAD
 	
 Ex:
 my $tree = { ... } ;
@@ -51,12 +48,13 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-	Term::Size;
-	Text::Wrap  ;
-
+	Term::Size ;
+	Text::Wrap ;
+	Class::ISA ;
+	
 COPYRIGHT AND LICENCE
 
-  Copyright (c) 2003 Nadim Ibn Hamouda el Khemir. All rights
+  Copyright (c) 2003-2005 Nadim Ibn Hamouda el Khemir. All rights
   reserved.  This program is free software; you can redis-
   tribute it and/or modify it under the same terms as Perl
   itself.

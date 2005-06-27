@@ -8,7 +8,8 @@ WriteMakefile(
 	    {
 	    Term::Size  => 0.2,
 	    Text::Wrap  => 2001.0929,
-	    Devel::Size => 0.58
+	    Devel::Size => 0.58, 
+	    Class::ISA  => 0
 	    },
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM => 'TreeDumper.pm', # retrieve abstract from module

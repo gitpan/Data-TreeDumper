@@ -1,10 +1,11 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Data-TreeDumper
-version:      0.21
+version:      0.22
 version_from: TreeDumper.pm
 installdirs:  site
 requires:
+    Class::ISA:                    0
     Devel::Size:                   0.58
     Term::Size:                    0.2
     Text::Wrap:                    2001.0929

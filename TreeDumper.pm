@@ -10,16 +10,11 @@ require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
 
 our @ISA = qw(Exporter) ;
-
-our %EXPORT_TAGS = 
-	(
-	'all' => [ qw() ]
-	) ;
-
+our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
-
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
-our $VERSION = '0.21' ;
+
+our $VERSION = '0.22' ;
 
 my $WIN32_CONSOLE ;
 
@@ -41,6 +36,7 @@ BEGIN
 	}
 	
 use Text::Wrap  ;
+use Class::ISA ;
 
 #-------------------------------------------------------------------------------
 # setup values
@@ -58,7 +54,11 @@ our %setup =
 	, VIRTUAL_WIDTH          => 120
 	, DISPLAY_ROOT_ADDRESS   => 0
 	, DISPLAY_ADDRESS        => 1
+	, DISPLAY_PATH           => 0
 	, DISPLAY_OBJECT_TYPE    => 1
+	, DISPLAY_INHERITANCE    => 0
+	, DISPLAY_TIE            => 0
+	, DISPLAY_AUTOLOAD       => 0
 	, DISPLAY_PERL_SIZE      => 0
 	, DISPLAY_PERL_ADDRESS   => 0
 	, NUMBER_LEVELS          => 0
@@ -95,7 +95,12 @@ our $Startlevel           = $setup{START_LEVEL} ;
 our $Virtualwidth         = $setup{VIRTUAL_WIDTH} ;
 our $Displayrootaddress   = $setup{DISPLAY_ROOT_ADDRESS} ;
 our $Displayaddress       = $setup{DISPLAY_ADDRESS} ;
+our $Displaypath          = $setup{DISPLAY_PATH} ;
 our $Displayobjecttype    = $setup{DISPLAY_OBJECT_TYPE} ;
+our $Displayinheritance   = $setup{DISPLAY_INHERITANCE} ;
+our $Displaytie           = $setup{DISPLAY_TIE} ;
+our $Displayautoload      = $setup{DISPLAY_AUTOLOAD} ;
+
 our $Displayperlsize      = $setup{DISPLAY_PERL_SIZE} ;
 our $Displayperladdress   = $setup{DISPLAY_PERL_ADDRESS} ;
 our $Numberlevels         = $setup{NUMBER_LEVELS} ;
@@ -123,7 +128,11 @@ return
 	, VIRTUAL_WIDTH          => $Data::TreeDumper::Virtualwidth
 	, DISPLAY_ROOT_ADDRESS   => $Data::TreeDumper::Displayrootaddress
 	, DISPLAY_ADDRESS        => $Data::TreeDumper::Displayaddress
+	, DISPLAY_PATH           => $Data::TreeDumper::Displaypath
 	, DISPLAY_OBJECT_TYPE    => $Data::TreeDumper::Displayobjecttype
+	, DISPLAY_INHERITANCE    => $Data::TreeDumper::Displayinheritance
+	, DISPLAY_TIE            => $Data::TreeDumper::Displaytie
+	, DISPLAY_AUTOLOAD       => $Data::TreeDumper::Displayautoload
 	, DISPLAY_PERL_SIZE      => $Data::TreeDumper::Displayperlsize
 	, DISPLAY_PERL_ADDRESS   => $Data::TreeDumper::Displayperladdress
 	, NUMBER_LEVELS          => $Data::TreeDumper::Numberlevels
@@ -434,6 +443,8 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 				}
 				
 			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+			
+			# $setup->{DISPLAY_TIE} doesn't make sense as scalars are copied
 			last ;
 			} ;
 			
@@ -470,6 +481,12 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 				$default_element_rendering .= ' (' . $number_of_elements . ' element' . $plural . ')' ; 
 				}
 				
+			if($setup->{DISPLAY_TIE} && (my $tie = tied %$element))
+				{
+				$tie =~ s/=.*$// ;
+				$default_element_rendering .= " (tied to '$tie')"
+				}
+				
 			last ;
 			} ;
 			
@@ -503,6 +520,12 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 				{
 				my $plural = scalar(@{$element}) ? 's' : '' ;
 				$default_element_rendering .= ' (' . @{$element} . ' element' . $plural . ')' ; 
+				}
+				
+			if($setup->{DISPLAY_TIE} && (my $tie = tied @$element))
+				{
+				$tie =~ s/=.*$// ;
+				$default_element_rendering .= " (tied to '$tie')"
 				}
 			last ;
 			} ;
@@ -545,8 +568,58 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 		# DEFAULT, an object.
 		$tag = 'O' ;
-		$element_value = "Object of type '" . ref($element) . "'" if($setup->{DISPLAY_OBJECT_TYPE}) ;
-		$default_element_rendering = " = $element_value" if($setup->{DISPLAY_OBJECT_TYPE}) ;
+		
+		if($setup->{DISPLAY_TIE})
+			{
+			if("$element" =~ 'HASH' && (my $tie_hash = tied %$element))
+				{
+				$tie_hash =~ s/=.*$// ;
+				$element_value .= " (tied to '$tie_hash') "
+				}
+			elsif("$element" =~ 'ARRAY' && (my $tie_array = tied @$element))
+				{
+				$tie_array =~ s/=.*$// ;
+				$element_value .= " (tied to '$tie_array') "
+				}
+			}
+			
+		if($setup->{DISPLAY_OBJECT_TYPE})
+			{
+			my $class = ref($element) ;
+			my $has_autoload ;
+			eval "\$has_autoload = *${class}::AUTOLOAD{CODE} ;" ;
+			$has_autoload = $has_autoload ? '[A]' : '' ;
+			
+			$element_value .= "blessed in '$has_autoload$class'" ;
+			
+			if($setup->{DISPLAY_INHERITANCE})
+				{
+				for my $class (Class::ISA::super_path(ref($element)))
+					{
+					if($setup->{DISPLAY_AUTOLOAD})
+						{
+						no warnings ;
+						eval "\$has_autoload = *${class}::AUTOLOAD{CODE} ;" ;
+						
+						if($has_autoload)
+							{
+							$element_value .= " <- [A]$class " ;
+							}
+						else
+							{
+							$element_value .= " <- $class " ;
+							}
+						}
+					else
+						{
+						$element_value .= " <- $class " ;
+						}
+					}
+				}
+				
+			$default_element_rendering = " = $element_value" ;
+			}
+			
 		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 		}
 		
@@ -1200,13 +1273,38 @@ Add the path of the element to the its address.
   
   ex: '- CopyOfARRAY  [A39 -> A18 /{'ARRAY'}]
 
-
 =head2 DISPLAY_OBJECT_TYPE
 
-Data::TreeDumper displays the package in which an object is blessed.  You 
+B<Data::TreeDumper> displays the package in which an object is blessed.  You 
 can suppress this display by using:
 
   DISPLAY_OBJECT_TYPE => 0
+
+=head2 DISPLAY_INHERITANCE
+
+B<Data::TreeDumper> will display the inheritance hierarchy for the object:
+
+  |- object =  blessed in 'SuperObject' <- Potatoe [O55]
+  |  `- Data = 0  [S56]
+
+=head2 DISPLAY_AUTOLOAD
+
+if set, B<Data::TreeDumper> will tag the object type with '[A]' if the package has an AUTOLOAD function.
+
+  |- object_with_autoload = blessed in '[A]SuperObjectWithAutoload' <- Potatoe <- [A] Vegetable   [O58]
+  |  `- Data = 0  [S56]
+
+=head2 DISPLAY_TIE
+
+if DISPLAY_TIE is set, B<Data::TreeDumper> will display which packae the variable is tied to. This works for
+hashes and arrays as well as for object which are based on hashes and arrays.
+
+  |- tied_hash (tied to 'TiedHash')  [H57]
+  |  `- x = 1  [S58]
+
+  |- tied_hash_object = (tied to 'TiedHash') blessed in 'SuperObject' <- [A]Potatoe <- Vegetable   [O59]
+  |  |- m1 = 1  [S60]
+  |  `- m2 = 2  [S61]
 
 =head2 PERL DATA 
 
@@ -1755,6 +1853,7 @@ wrapped multiple times so they snuggly fit your screen.
   |    Long_name Long_name Long_name Long_name Long_name [S26] = 0
 
 You can direct DTD to not wrap your text by setting B<NO_WRAP => 1>.
+
 =head1 Custom Rendering
 
 B<Data::TreeDumper> has a plug-in interface for other rendering formats. The renderer callbacks are
@@ -1891,6 +1990,8 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 
 =item * DISPLAY_ADDRESS 
 
+=item * DISPLAY_PATH
+
 =item * DISPLAY_PERL_SIZE
 
 =item * DISPLAY_ROOT_ADDRESS 
@@ -1907,9 +2008,13 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 
 =item * MAX_DEPTH 
 
+=item * DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH
+
 =item * NUMBER_LEVELS 
 
 =item * QUOTE_HASH_KEYS
+
+=item * QUOTE_VALUES
 
 =item * REPLACEMENT_LIST
 
@@ -1920,6 +2025,14 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 =item * VIRTUAL_WIDTH 
 
 =item * NO_OUTPUT
+
+=item * DISPLAY_OBJECT_TYPE
+
+=item * DISPLAY_INHERITANCE
+
+=item * DISPLAY_TIE
+
+=item * DISPLAY_AUTOLOAD
 
 =back
 
@@ -1936,7 +2049,11 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
   $Data::TreeDumper::Virtualwidth         = 120 ;
   $Data::TreeDumper::Displayrootaddress   = 0 ;
   $Data::TreeDumper::Displayaddress       = 1 ;
+  $Data::TreeDumper::Displaypath          = 0 ;
   $Data::TreeDumper::Displayobjecttype    = 1 ;
+  $Data::TreeDumper::Displayinheritance   = 0 ;
+  $Data::TreeDumper::Displaytie           = 0 ;
+  $Data::TreeDumper::Displayautoload      = 0 ;
   $Data::TreeDumper::Displayperlsize      = 0 ;
   $Data::TreeDumper::Displayperladdress   = 0 ;
   $Data::TreeDumper::Filter               = \&FlipEverySecondOne ;

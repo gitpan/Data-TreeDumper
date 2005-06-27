@@ -1,6 +1,11 @@
 Revision history for Perl extension Data::TreeDumper.
 
-0.21 :00:00 2005
+0.22  Tue Jun 28 0:00:00 2005
+	FIXED: missing DISPLAY_PATH in package setup
+	FIXED: minor documentation formating error
+	ADDED: DISPLAY_INHERITANCE, DISPLAY_TIE, DISPLAY_AUTOLOAD
+
+0.21 Sun 26 Jun 20:00:00 2005
 	ADDED: DISPLAY_PATH
 	FIXED: Finally got it tested and running on windows
 	
