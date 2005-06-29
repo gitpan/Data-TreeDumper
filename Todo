@@ -1,4 +1,6 @@
 
+display tie for other types than arrays and hashes
+
 Add the possibility to prune self not only children
 
 Accept non reference input

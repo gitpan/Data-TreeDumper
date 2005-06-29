@@ -10,6 +10,7 @@ usage.pl
 filters.pl
 colors.pl
 try_it.pl
+tie_bless.pl
 
 TreeDumper.pm
 

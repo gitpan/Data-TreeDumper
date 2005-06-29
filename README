@@ -1,15 +1,15 @@
 Data/TreeDumper version
 ========================
 
-Version 0.22  Tue Jun 28 0:00:00 2005
+0.23  Thu Jun 30 0:30:00 2005
 
 Data::TreeDumper dumps any data structure. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-	FIXED: missing DISPLAY_PATH in package setup
-	FIXED: minor documentation formating error
-	ADDED: DISPLAY_INHERITANCE, DISPLAY_TIE, DISPLAY_AUTOLOAD
+	ADDED: tie, bless and hierachy is showed for the pass reference with title
+	ADDED: Handle tied scalars and handles
+	ADDED: show if tie is to a hash or an array ...
 	
 Ex:
 my $tree = { ... } ;

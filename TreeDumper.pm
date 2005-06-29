@@ -14,7 +14,7 @@ our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.22' ;
+our $VERSION = '0.23' ;
 
 my $WIN32_CONSOLE ;
 
@@ -295,6 +295,8 @@ EOE
 		
 	unless($setup->{NO_OUTPUT})
 		{
+		my $root_tie_and_class = GetElementTieAndClass($setup, $tree) ;
+		
 		if(defined $setup->{RENDERER}{BEGIN})
 			{
 			my $root_address = '' ;
@@ -306,13 +308,14 @@ EOE
 			my $perl_size = '' ;
 			$perl_size = total_size($tree)                if($setup->{DISPLAY_PERL_SIZE}) ;
 			
-			$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE}, $root_address, $tree, $perl_size, $perl_address, $setup) ;
+			$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE} . $root_tie_and_class, $root_address, $tree, $perl_size, $perl_address, $setup) ;
 			}
 		else
 			{
 			$output = $setup->{INDENTATION} ;
 			
 			$output .= defined $setup->{TITLE} ? $setup->{TITLE} : '' ;
+			$output .= $root_tie_and_class ;
 			$output .= ' [' . GetReferenceType($tree) . "0]" if($setup->{DISPLAY_ROOT_ADDRESS}) ;
 			$output .= " $tree"                              if($setup->{DISPLAY_PERL_ADDRESS}) ;
 			$output .= " <" . total_size($tree) . ">"        if($setup->{DISPLAY_PERL_SIZE}) ;
@@ -537,6 +540,7 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 			#~ use Data::Dump::Streamer;
 			#~ $element_value = "----- " . Dump($element)->Out() ;
+			
 			$element_value = "$element" ;
 			$default_element_rendering= " = $element_value" ;
 			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
@@ -569,54 +573,9 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 		# DEFAULT, an object.
 		$tag = 'O' ;
 		
-		if($setup->{DISPLAY_TIE})
-			{
-			if("$element" =~ 'HASH' && (my $tie_hash = tied %$element))
-				{
-				$tie_hash =~ s/=.*$// ;
-				$element_value .= " (tied to '$tie_hash') "
-				}
-			elsif("$element" =~ 'ARRAY' && (my $tie_array = tied @$element))
-				{
-				$tie_array =~ s/=.*$// ;
-				$element_value .= " (tied to '$tie_array') "
-				}
-			}
-			
 		if($setup->{DISPLAY_OBJECT_TYPE})
 			{
-			my $class = ref($element) ;
-			my $has_autoload ;
-			eval "\$has_autoload = *${class}::AUTOLOAD{CODE} ;" ;
-			$has_autoload = $has_autoload ? '[A]' : '' ;
-			
-			$element_value .= "blessed in '$has_autoload$class'" ;
-			
-			if($setup->{DISPLAY_INHERITANCE})
-				{
-				for my $class (Class::ISA::super_path(ref($element)))
-					{
-					if($setup->{DISPLAY_AUTOLOAD})
-						{
-						no warnings ;
-						eval "\$has_autoload = *${class}::AUTOLOAD{CODE} ;" ;
-						
-						if($has_autoload)
-							{
-							$element_value .= " <- [A]$class " ;
-							}
-						else
-							{
-							$element_value .= " <- $class " ;
-							}
-						}
-					else
-						{
-						$element_value .= " <- $class " ;
-						}
-					}
-				}
-				
+			$element_value .= GetElementTieAndClass($setup, $element) ;
 			$default_element_rendering = " = $element_value" ;
 			}
 			
@@ -752,6 +711,85 @@ if($level == 0)
 	}
 	
 return($output) ;
+}
+
+#----------------------------------------------------------------------
+
+sub GetElementTieAndClass
+{
+
+my ($setup, $element) = @_ ;
+my $element_type = '' ;
+
+if($setup->{DISPLAY_TIE})
+	{
+	if("$element" =~ '=HASH' && (my $tie_hash = tied %$element))
+		{
+		$tie_hash =~ s/=.*$// ;
+		$element_type .= " (tied to '$tie_hash' [H])"
+		}
+	elsif("$element" =~ '=ARRAY' && (my $tie_array = tied @$element))
+		{
+		$tie_array =~ s/=.*$// ;
+		$element_type .= " (tied to '$tie_array' [A])"
+		}
+	elsif("$element" =~ '=SCALAR' && (my $tie_scalar = tied $$element))
+		{
+		$tie_scalar =~ s/=.*$// ;
+		$element_type .= " (tied to '$tie_scalar' [RS])"
+		}
+	elsif("$element" =~ '=GLOB' && (my $tie_glob = tied *$element))
+		{
+		$tie_glob =~ s/=.*$// ;
+		$element_type .= " (tied to '$tie_glob' [G])"
+		}
+	}
+	
+for(ref $element)
+	{
+	'' eq $_ || 'HASH' eq $_ || 'ARRAY' eq $_ || 'CODE' eq $_ || 'SCALAR' eq $_ || 'GLOB' eq $_ || 'REF' eq $_ and do
+		{
+		last ;
+		} ;
+		
+	# an object.
+	if($setup->{DISPLAY_OBJECT_TYPE})
+		{
+		my $class = ref($element) ;
+		my $has_autoload ;
+		eval "\$has_autoload = *${class}::AUTOLOAD{CODE} ;" ;
+		$has_autoload = $has_autoload ? '[A]' : '' ;
+		
+		$element_type .= " blessed in '$has_autoload$class'" ;
+		
+		if($setup->{DISPLAY_INHERITANCE})
+			{
+			for my $base_class (Class::ISA::super_path(ref($element)))
+				{
+				if($setup->{DISPLAY_AUTOLOAD})
+					{
+					no warnings ;
+					eval "\$has_autoload = *${base_class}::AUTOLOAD{CODE} ;" ;
+					
+					if($has_autoload)
+						{
+						$element_type .= " <- [A]$base_class " ;
+						}
+					else
+						{
+						$element_type .= " <- $base_class " ;
+						}
+					}
+				else
+					{
+					$element_type .= " <- $base_class " ;
+					}
+				}
+			}
+		}
+	}
+	
+return($element_type) ;
 }
 
 #----------------------------------------------------------------------
