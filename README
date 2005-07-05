@@ -1,15 +1,15 @@
 Data/TreeDumper version
 ========================
 
-0.23  Thu Jun 30 0:30:00 2005
+0.24  Tue Jul 05 21:30:00 2005
 
 Data::TreeDumper dumps any data structure. Try the examples
 that come with Data::TreeDumper.
 
 In this release:
-	ADDED: tie, bless and hierachy is showed for the pass reference with title
-	ADDED: Handle tied scalars and handles
-	ADDED: show if tie is to a hash or an array ...
+	ADDED: display if undef is passed to DTD, don't know if we shouldn't croak.
+	ADDED: NO_NO_ELEMENTS
+	ADDED: display tie for scalar and handle
 	
 Ex:
 my $tree = { ... } ;

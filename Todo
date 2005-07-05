@@ -1,10 +1,15 @@
 
-display tie for other types than arrays and hashes
+Add option name verification so we stop passing the wrong names!
+	=> dump a list of the available names
+		=> soundex the closes
+			=> take the closest and display only a warning!
 
 Add the possibility to prune self not only children
 
 Accept non reference input
 	=> implemented but not accepted yet
+
+#display tie for other types than arrays and hashes
 
 #DISPLAY_PATH
 
