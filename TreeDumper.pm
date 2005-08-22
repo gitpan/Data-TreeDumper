@@ -14,7 +14,7 @@ our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.24' ;
+our $VERSION = '0.25' ;
 
 my $WIN32_CONSOLE ;
 
@@ -66,7 +66,7 @@ our %setup =
 	, GLYPHS                 => ['|  ', '|- ', '`- ', '   ']
 	, QUOTE_HASH_KEYS        => 0
 	, QUOTE_VALUES           => 0
-	, REPLACEMENT_LIST       => [ ["\n" => '[\n]'], ["\r" => '[\r]'] ]
+	, REPLACEMENT_LIST       => [ ["\n" => '[\n]'], ["\r" => '[\r]'], ["\t" => '[\t]'] ]
 	
 	, DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => 0
 	
