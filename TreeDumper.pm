@@ -14,7 +14,7 @@ our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.25' ;
+our $VERSION = '0.26' ;
 
 my $WIN32_CONSOLE ;
 
@@ -495,20 +495,25 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 			if(! %{$element} && ! $setup->{NO_NO_ELEMENTS})
 				{
-				$default_element_rendering = ' (no elements)' ;
+				$default_element_rendering = $element_value = ' (no elements)' ;
 				}
 			
 			if(%{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
 				{
 				my $number_of_elements = keys %{$element} ;
 				my $plural = $number_of_elements > 1 ? 's' : '' ;
-				$default_element_rendering .= ' (' . $number_of_elements . ' element' . $plural . ')' ; 
+				my $elements = ' (' . $number_of_elements . ' element' . $plural . ')' ; 
+				
+				$default_element_rendering .= $elements ;
+				$element_value .= $elements ;
 				}
 				
 			if($setup->{DISPLAY_TIE} && (my $tie = tied %$element))
 				{
 				$tie =~ s/=.*$// ;
-				$default_element_rendering .= " (tied to '$tie')"
+				my $tie = " (tied to '$tie')" ;
+				$default_element_rendering .= $tie ;
+				$element_value .= $tie ;
 				}
 				
 			last ;
@@ -541,19 +546,24 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 			
 			if(! @{$element} && ! $setup->{NO_NO_ELEMENTS})
 				{
-				$default_element_rendering = ' (no elements)' ;
+				$default_element_rendering = $element_value .= ' (no elements)' ;
 				}
 			
 			if(@{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
 				{
 				my $plural = scalar(@{$element}) ? 's' : '' ;
-				$default_element_rendering .= ' (' . @{$element} . ' element' . $plural . ')' ; 
+				my $elements = ' (' . @{$element} . ' element' . $plural . ')' ; 
+				
+				$default_element_rendering .= $elements ;
+				$element_value .= $elements ;
 				}
 				
 			if($setup->{DISPLAY_TIE} && (my $tie = tied @$element))
 				{
 				$tie =~ s/=.*$// ;
-				$default_element_rendering .= " (tied to '$tie')"
+				my $tie = " (tied to '$tie')" ;
+				$default_element_rendering .= $tie ;
+				$element_value .= $tie ;
 				}
 			last ;
 			} ;
@@ -598,13 +608,45 @@ for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
 		# DEFAULT, an object.
 		$tag = 'O' ;
 		
+		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		
+		#check if the object is empty and display that state if NO_NO_ELEMENT isn't set
+		for($element)
+			{
+			/=HASH/ and do
+				{
+				unless(%$element)
+					{
+					$is_terminal_node++  ;
+					
+					unless($setup->{NO_NO_ELEMENTS})
+						{
+						$element_value = "(Hash, empty) $element_value" ;
+						}
+					}
+				last ;
+				} ;
+			
+			/=ARRAY/ and do
+				{
+				unless(@$element)
+					{
+					$is_terminal_node++  ;
+					
+					unless($setup->{NO_NO_ELEMENTS})
+						{
+						$element_value = "(Array, empty) $element_value" ;
+						}
+					}
+				last ;
+				} ;
+			}
+			
 		if($setup->{DISPLAY_OBJECT_TYPE})
 			{
 			$element_value .= GetElementTieAndClass($setup, $element) ;
 			$default_element_rendering = " = $element_value" ;
 			}
-			
-		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 		}
 		
 	my $dtd_address = $tag . $already_displayed_nodes->{NEXT_INDEX} ;
@@ -783,7 +825,7 @@ for(ref $element)
 		my $class = ref($element) ;
 		my $has_autoload ;
 		eval "\$has_autoload = *${class}::AUTOLOAD{CODE} ;" ;
-		$has_autoload = $has_autoload ? '[A]' : '' ;
+		$has_autoload = $has_autoload ? '[AL]' : '' ;
 		
 		$element_type .= " blessed in '$has_autoload$class'" ;
 		
@@ -798,7 +840,7 @@ for(ref $element)
 					
 					if($has_autoload)
 						{
-						$element_type .= " <- [A]$base_class " ;
+						$element_type .= " <- [AL]$base_class " ;
 						}
 					else
 						{
@@ -1810,7 +1852,7 @@ means there is no maximum depth. This is useful to limit the amount of data disp
 	
 =head2 Number of elements not displayed because of maximum depth limit
 
-Data::TreDumper will display the number of elements a has or array has but that can not be displayed
+Data::TreDumper will display the number of elements a hash or array has but that can not be displayed
 because of the maximum depth setting.
 
   DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => 1

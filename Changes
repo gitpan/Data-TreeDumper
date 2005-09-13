@@ -1,5 +1,10 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.26  
+	FIXED: is_terminal unproperly set for empty objects (found by Ari Jolma)
+	ADDED: display of object underlying type and it's emptiness state
+	FIXED: made "NO_ELEMENTS, NUMBER_OF_ELEMENTS, TIE available to renderers
+	
 0.25  
 	ADDED: \t is displayed as '\t'
 	

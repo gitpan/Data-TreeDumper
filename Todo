@@ -9,6 +9,8 @@ Add the possibility to prune self not only children
 Accept non reference input
 	=> implemented but not accepted yet
 
+Add DISPLAY_NUMBER_OF_ELEMENTS
+
 #display tie for other types than arrays and hashes
 
 #DISPLAY_PATH
