@@ -12,9 +12,9 @@ use AutoLoader qw(AUTOLOAD) ;
 our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
-our @EXPORT = qw(DumpTree DumpTrees CreateChainingFilter);
+our @EXPORT = qw(DumpTree PrintTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.27' ;
+our $VERSION = '0.31' ;
 
 my $WIN32_CONSOLE ;
 
@@ -31,7 +31,6 @@ BEGIN
 		die $@ if $@ ;
 		
 		$WIN32_CONSOLE= new Win32::Console;
-		$WIN32_CONSOLE->Alloc();
 		}
 	}
 	
@@ -45,6 +44,7 @@ use Class::ISA ;
 our %setup =
 	(
 	  FILTER                 => undef
+	, FILTER_ARGUMENT        => undef
 	, LEVEL_FILTERS          => undef
 	, USE_ASCII              => 1
 	, MAX_DEPTH              => -1
@@ -70,7 +70,10 @@ our %setup =
 	
 	, DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => 0
 	
+	, DISPLAY_CALLER_LOCATION=> 0
+	
 	, __DATA_PATH            => ''
+	, __PATH_ELEMENTS        => []
 	, __TYPE_SEPARATORS      => {
 					  ''       => ['<SCALAR:', '>']
 					, 'REF'    => ['<', '>']
@@ -86,6 +89,7 @@ our %setup =
 #----------------------------------------------------------------------
 
 our $Filter               = $setup{FILTER} ;
+our $Filterarguments      = $setup{FILTER_ARGUMENT} ;
 our $Levelfilters         = $setup{LEVEL_FILTERS} ;
 our $Useascii             = $setup{USE_ASCII} ;
 our $Maxdepth             = $setup{MAX_DEPTH} ;
@@ -112,6 +116,7 @@ our $ReplacementList      = [@{$setup{REPLACEMENT_LIST}}] ; # we don't want it t
 
 our $Displaynumberofelementsovermaxdepth = $setup{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH} ;
 
+our $Displaycallerlocation= $setup{DISPLAY_CALLER_LOCATION} ;
 #~ our $Deparse    = 0 ;  # not implemented 
 
 sub GetPackageSetup
@@ -119,6 +124,7 @@ sub GetPackageSetup
 return
 	(
 	  FILTER                 => $Data::TreeDumper::Filter
+	, FILTER_ARGUMENT        => $Data::TreeDumper::Filterarguments
 	, LEVEL_FILTERS          => $Data::TreeDumper::Levelfilters
 	, USE_ASCII              => $Data::TreeDumper::Useascii
 	, MAX_DEPTH              => $Data::TreeDumper::Maxdepth
@@ -143,7 +149,10 @@ return
 	
 	, DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => $Displaynumberofelementsovermaxdepth
 	
+	, DISPLAY_CALLER_LOCATION=> $Displaycallerlocation
+	
 	, __DATA_PATH            => ''
+	, __PATH_ELEMENTS        => []
 	, __TYPE_SEPARATORS      => $setup{__TYPE_SEPARATORS}
 	) ;
 }
@@ -151,6 +160,13 @@ return
 #-------------------------------------------------------------------------------
 # API
 #-------------------------------------------------------------------------------
+
+sub PrintTree
+{
+my ($package, $file_name, $line) = caller() ;
+print DumpTree(@_, DUMPER_NAME => "PrintTree  at '$file_name:$line'") ;
+}
+
 sub DumpTree
 {
 my $structure_to_dump = shift ;
@@ -159,10 +175,28 @@ my %overrides         =  @_ ;
 
 $title = defined $title ? $title : '' ;
 
+my ($package, $file_name, $line) = caller() ;
+
+my $location = '' ;
+
+if($Displaycallerlocation)
+	{
+	$location = defined $overrides{DUMPER_NAME} ? $overrides{DUMPER_NAME} : "DumpTree at '$file_name:$line'" ;
+	}
+	
 unless(defined $structure_to_dump)
 	{
-	my ($package, $file_name, $line) = caller() ;
-	return("You asked DumpeTree to dump 'undef' with title: '$title' @ '$file_name:$line'.\n") ;
+	return("$title (undefined variable) $location\n") ;
+	}
+
+if('' eq ref $structure_to_dump)
+	{
+	return("$title $structure_to_dump (scalar variable) $location\n");
+	}
+	
+if($Displaycallerlocation)
+	{
+	print "$location\n" ;
 	}
 
 if(exists $overrides{NO_PACKAGE_SETUP} && $overrides{NO_PACKAGE_SETUP})
@@ -197,7 +231,6 @@ for my $tree (@trees)
 		my ($package, $file_name, $line) = caller() ;
 		$dump .= "DumpTrees can't dump 'undef' with title: '$title' @ '$file_name:$line'.\n" ;
 		}
-		
 	}
 	
 return($dump) ;
@@ -214,17 +247,10 @@ my $level            = shift || 0 ;
 my $levels_left      = shift || [] ;
 
 my $tree_type = ref $tree ;
+
 confess "TreeDumper can only display objects passed by reference!\n" if('' eq  $tree_type) ;
 
-#~ # if we want to handle scalars passed to the dumper
-#~ if('' eq  $tree_type)
-	#~ {
-	#~ $setup->{QUOTE_VALUES}++ ;
-	#~ my ($package, $file_name, $line) = caller() ;
-	#~ $tree = {"DTD: Element passed by value @ $file_name:$line!" => $tree} ;
-	#~ }
-	
-my $already_displayed_nodes = shift || {$tree => GetReferenceType($tree) . '0', NEXT_INDEX => 1} ;
+my $already_displayed_nodes = shift || {$tree => GetReferenceType($tree) . 'O', NEXT_INDEX => 1} ;
 
 return('') if ($setup->{MAX_DEPTH} == $level) ;
 
@@ -247,24 +273,21 @@ local $Devel::Size::warn = 0 if($level == 0) ;
 #--------------------------
 # filters
 #--------------------------
-my $filter_sub    = $setup->{FILTER} ;
-my $level_filters = $setup->{LEVEL_FILTERS} ;
-
 my ($replacement_tree, $nodes_to_display) ;
-
-# specific level filter has higher priority
-$filter_sub = $level_filters->{$level} if(defined $level_filters && exists $level_filters->{$level}) ;
+my ($filter_sub, $filter_argument) = GetFilter($setup, $level) ;
 
 if(defined $filter_sub)
 	{
-	($tree_type, $replacement_tree, @$nodes_to_display) = $filter_sub->($tree, $level, $setup->{__DATA_PATH}, $nodes_to_display, $setup) ;
+	($tree_type, $replacement_tree, @$nodes_to_display) 
+		= $filter_sub->($tree, $level, $setup->{__DATA_PATH}, $nodes_to_display, $setup, $filter_argument) ;
+	
 	$tree = $replacement_tree if(defined $replacement_tree) ;
 	}
 else
 	{
 	($tree_type, undef, @$nodes_to_display) = DefaultNodesToDisplay($tree) ;
 	}
-	
+
 return('') unless defined $tree_type ; #easiest way to prune in a filter is to return undef as type
 
 # filters can change the name of the nodes by passing an array ref
@@ -288,60 +311,228 @@ for my $node (@nodes_to_display)
 # dump
 #--------------------------
 my $output = '' ;
-if($level == 0)
+$output .= RenderRoot($tree, $setup) if($level == 0) ;
+
+my ($opening_bracket, $closing_bracket) = GetBrackets($setup, $tree_type) ;
+
+for (my $node_index = 0 ; $node_index < @nodes_to_display ; $node_index++)
 	{
-	if(defined $setup->{RENDERER} && '' eq ref $setup->{RENDERER})
-		{
-		eval <<EOE ;
-		use Data::TreeDumper::Renderer::$setup->{RENDERER} ;
-		\$setup->{RENDERER} = Data::TreeDumper::Renderer::$setup->{RENDERER}::GetRenderer() ;
-EOE
-		
-		die "Data::TreeDumper couldn't load renderer '$setup->{RENDERER}':\n$@" if $@ ;
-		}
+	my $nodes_left = (@nodes_to_display - 1) - $node_index ;
 	
-	if(defined $setup->{RENDERER}{NAME})
+	$levels_left->[$level] = $nodes_left ;
+	
+	my @separator_data = GetSeparator
+				(
+				  $level
+				, $nodes_left
+				, $levels_left
+				, $setup->{START_LEVEL}
+				, $setup->{GLYPHS}
+				, $setup->{COLOR_LEVELS}
+				) ;
+				
+	my ($element, $element_name, $element_address, $element_id) 
+		= GetElement($tree, $tree_type, \@nodes_to_display, \@node_names, $node_index, $setup);
+	
+	my $is_terminal_node = IsTerminalNode
+			(
+			  $element
+			, $element_name
+			, $level
+			, $setup
+			) ;
+			
+	if(! $is_terminal_node && exists $already_displayed_nodes->{$element_address})
 		{
-		eval <<EOE ;
-		use Data::TreeDumper::Renderer::$setup->{RENDERER}{NAME} ;
-		\$setup->{RENDERER} = {%{\$setup->{RENDERER}}, %{Data::TreeDumper::Renderer::$setup->{RENDERER}{NAME}::GetRenderer()}} ;
-EOE
-		
-		die "Data::TreeDumper couldn't load renderer '$setup->{RENDERER}{NAME}':\n$@" if $@ ;
+		$is_terminal_node = 1 ;
 		}
 		
-	unless($setup->{NO_OUTPUT})
+	$output .= RenderElementName
+			(
+			  \@separator_data
+			  
+			, $tree, $tree_type, \@nodes_to_display, \@node_names, $node_index
+			
+			, $level
+			, $levels_left
+			, $already_displayed_nodes
+			, $setup
+			) ;
+			
+	unless($is_terminal_node)
 		{
-		my $root_tie_and_class = GetElementTieAndClass($setup, $tree) ;
+		local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}$opening_bracket$element_name$closing_bracket" ;
 		
-		if(defined $setup->{RENDERER}{BEGIN})
+		push @{$setup->{__PATH_ELEMENTS}}, [$tree_type, $element_name, $tree] ;
+		
+		$output .= TreeDumper($element, $setup, $level + 1, $levels_left, $already_displayed_nodes)  ;
+		
+		pop @{$setup->{__PATH_ELEMENTS}} ;
+		}
+	}
+	
+RenderEnd(\$output, $setup) if($level == 0) ;
+	
+return($output) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub GetFilter
+{
+my ($setup, $level) = @_ ;
+
+my $filter_sub    = $setup->{FILTER} ;
+
+# specific level filter has higher priority
+my $level_filters = $setup->{LEVEL_FILTERS} ;
+$filter_sub = $level_filters->{$level} if(defined $level_filters && exists $level_filters->{$level}) ;
+
+unless ('CODE' eq ref $filter_sub || ! defined $filter_sub)
+	{
+	my ($package, $file_name, $line) = caller(2) ;
+	
+	die "DumpTree: FILTER must be sub reference at '$file_name:$line'" ;
+	}
+
+return($filter_sub, $setup->{FILTER_ARGUMENT}) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub GetElement
+{
+my ($tree, $tree_type, $nodes_to_display, $node_names, $node_index, $setup) = @_ ;
+
+my ($element, $element_name, $element_address, $element_id) ;
+
+for($tree_type)
+	{
+	# TODO, move this out of the loop with static table of functions
+	'HASH' eq $_ and do
+		{
+		$element = $tree->{$nodes_to_display->[$node_index]} ;
+		$element_address = "$element" if defined $element ;
+		
+		if($setup->{QUOTE_HASH_KEYS})
 			{
-			my $root_address = '' ;
-			$root_address = GetReferenceType($tree) . '0' if($setup->{DISPLAY_ROOT_ADDRESS}) ;
-			
-			my $perl_address = '' ;
-			$perl_address = $tree                         if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			
-			my $perl_size = '' ;
-			$perl_size = total_size($tree)                if($setup->{DISPLAY_PERL_SIZE}) ;
-			
-			$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE} . $root_tie_and_class, $root_address, $tree, $perl_size, $perl_address, $setup) ;
+			$element_name = "'$node_names->[$node_index]'" ;
 			}
 		else
 			{
-			$output = $setup->{INDENTATION} ;
-			
-			$output .= defined $setup->{TITLE} ? $setup->{TITLE} : '' ;
-			$output .= $root_tie_and_class ;
-			$output .= ' [' . GetReferenceType($tree) . "0]" if($setup->{DISPLAY_ROOT_ADDRESS}) ;
-			$output .= " $tree"                              if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			$output .= " <" . total_size($tree) . ">"        if($setup->{DISPLAY_PERL_SIZE}) ;
-			$output .= "\n" ;
+			$element_name = $node_names->[$node_index] ;
 			}
-		}
+			
+		$element_id = \($tree->{$nodes_to_display->[$node_index]}) ;
+		
+		last
+		} ;
+	
+	'ARRAY' eq $_ and do
+		{
+		#~ # debug while writting Diff module
+		#~ unless(defined $nodes_to_display->[$node_index])
+			#~ {
+			#~ use Data::Dumper ;
+			#~ print Dumper $nodes_to_display ;
+			#~ my ($package, $file_name, $line) = caller() ;
+			#~ print "Called from $file_name, $line\n" ;
+			#~ print "$tree->\[$nodes_to_display->\[$node_index\]\]\n" ;
+			#~ }
+		$element = $tree->[$nodes_to_display->[$node_index]] ;
+		$element_address = "$element" if defined $element ;
+		$element_name = $node_names->[$node_index] ;
+		$element_id = \($tree->[$nodes_to_display->[$node_index]]) ;
+		last ;
+		} ;
+		
+	'REF' eq $_ and do
+		{
+		$element = $$tree ;
+		$element_address = "$element" if defined $element ;
+		$element_name = "$tree" ;
+		$element_id = $tree ;
+		last ;
+		} ;
+		
+	'CODE' eq $_ and do
+		{
+		$element = $tree ;
+		$element_address = "$element" if defined $element ;
+		$element_name = $tree ;
+		$element_id = $tree ;
+		last ;
+		} ;
+		
+	('SCALAR' eq $_) and do
+	#~ ('SCALAR' eq $_ or 'GLOB' eq $_) and do
+		{
+		$element = $$tree ;
+		$element_address = "$element" if defined $element ;
+		$element_name = '?' ;
+		$element_id = $tree ;
+		last ;
+		} ;
 	}
 
+return ($element, $element_name, $element_address, $element_id) ;
+}
+
+#----------------------------------------------------------------------
+
+sub RenderElementName
+{
+my
+(
+  $separator_data
+  
+, $tree, $tree_type, $nodes_to_display, $node_names, $node_index
+
+, $level
+, $levels_left
+, $already_displayed_nodes
+
+, $setup
+) = @_ ;
+
+return('') unless defined $tree  ;
+
+my ($opening_bracket, $closing_bracket)  = GetBrackets($setup, $tree_type) ;
+
+my ($element, $element_name, $element_address, $element_id) 
+	= GetElement($tree, $tree_type, $nodes_to_display, $node_names, $node_index, $setup);
+
+my @rendering_elements = GetElementInfo
+			(
+			  $element
+			, $element_name
+			, $element_address
+			, $element_id
+			, $level
+			, $already_displayed_nodes
+			, $setup
+			) ;
+	
+my $output = RenderNode
+		(
+		  $element
+		, $element_name
+		, $level
+		, @$separator_data
+		, @rendering_elements
+		, $setup
+		) ;
+
+return($output) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub GetBrackets
+{
+my ($setup, $tree_type) = @_ ;
 my ($opening_bracket, $closing_bracket) ;
+
 if(exists $setup->{__TYPE_SEPARATORS}{$tree_type})
 	{
 	($opening_bracket, $closing_bracket) = @{$setup->{__TYPE_SEPARATORS}{$tree_type}} ;
@@ -350,434 +541,594 @@ else
 	{
 	($opening_bracket, $closing_bracket) = ('<Unknown type!', '>') ;
 	}
+	
+return($opening_bracket, $closing_bracket) ;
+}
 
-for (my $nodes_left = $#nodes_to_display ; $nodes_left >= 0 ; $nodes_left--)
+#-------------------------------------------------------------------------------
+
+sub RenderEnd
+{
+my ($output_ref, $setup) = @_ ;
+
+return('') if $setup->{NO_OUTPUT} ;
+
+if(defined $setup->{RENDERER}{END})
 	{
-	$levels_left->[$level] = $nodes_left ;
-	
-	my $node_index = $#nodes_to_display - $nodes_left ;
-	
-	my ($element, $element_name, $element_address, $element_id) ;
-	for($tree_type)
+	$$output_ref .= $setup->{RENDERER}{END}($setup) ;
+	}
+else
+	{
+	unless ($setup->{USE_ASCII})
 		{
-		# TODO, move this out of the loop with static table of functions
-		'HASH' eq $_ and do
-			{
-			$element = $tree->{$nodes_to_display[$node_index]} ;
-			$element_address = "$element" if defined $element ;
-			
-			if($setup->{QUOTE_HASH_KEYS})
-				{
-				$element_name = "'$node_names[$node_index]'" ;
-				}
-			else
-				{
-				$element_name = $node_names[$node_index] ;
-				}
-				
-			$element_id = \($tree->{$nodes_to_display[$node_index]}) ;
-			
-			last
-			} ;
-		
-		'ARRAY' eq $_ and do
-			{
-			$element = $tree->[$nodes_to_display[$node_index]] ;
-			$element_address = "$element" if defined $element ;
-			$element_name = $node_names[$node_index] ;
-			$element_id = \($tree->[$nodes_to_display[$node_index]]) ;
-			last ;
-			} ;
-			
-		'REF' eq $_ and do
-			{
-			$element = $$tree ;
-			$element_address = "$element" if defined $element ;
-			$element_name = "$tree" ;
-			$element_id = $tree ;
-			last ;
-			} ;
-			
-		'CODE' eq $_ and do
-			{
-			$element = $tree ;
-			$element_address = "$element" if defined $element ;
-			$element_name = $tree ;
-			$element_id = $tree ;
-			last ;
-			} ;
-			
-		('SCALAR' eq $_) and do
-		#~ ('SCALAR' eq $_ or 'GLOB' eq $_) and do
-			{
-			$element = $$tree ;
-			$element_address = "$element" if defined $element ;
-			$element_name = '?' ;
-			$element_id = $tree ;
-			last ;
-			} ;
+		# convert to ANSI
+		$$output_ref =~ s/\|  /\033(0\170  \033(B/g ;
+		$$output_ref =~ s/\|- /\033(0\164\161 \033(B/g ;
+		$$output_ref =~ s/\`- /\033(0\155\161 \033(B/g ;
 		}
+	}
+}
+
+#-------------------------------------------------------------------------------
+
+sub RenderRoot
+{
+my ($tree, $setup) = @_ ;
+my $output = '' ;
+
+if(defined $setup->{RENDERER} && '' eq ref $setup->{RENDERER})
+	{
+	eval <<EOE ;
+	use Data::TreeDumper::Renderer::$setup->{RENDERER} ;
+	\$setup->{RENDERER} = Data::TreeDumper::Renderer::$setup->{RENDERER}::GetRenderer() ;
+EOE
 	
-	local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}$opening_bracket$element_name$closing_bracket" ;
+	die "Data::TreeDumper couldn't load renderer '$setup->{RENDERER}':\n$@" if $@ ;
+	}
+
+if(defined $setup->{RENDERER}{NAME})
+	{
+	eval <<EOE ;
+	use Data::TreeDumper::Renderer::$setup->{RENDERER}{NAME} ;
+	\$setup->{RENDERER} = {%{\$setup->{RENDERER}}, %{Data::TreeDumper::Renderer::$setup->{RENDERER}{NAME}::GetRenderer()}} ;
+EOE
 	
-	my $perl_size = '' ;
-	$perl_size = total_size($element) if($setup->{DISPLAY_PERL_SIZE}) ;
-	
-	my $perl_address = "" ;
-	
-	my $tag = '' ;
-	my $element_value = '' ;
-	my $is_terminal_node = 0 ;
-	my $default_element_rendering  = '' ;
-	
-	for(ref $element)
-		{
-		'' eq $_ and do
-			{
-			$is_terminal_node++ ;
-			$tag = 'S' ;
-			
-			$element_address = $already_displayed_nodes->{NEXT_INDEX} ;
-			
-			my $value = defined $element ? $element : 'undef' ;
-			$element_value = "$value" ;
-			
-			my $replacement_list = $setup->{REPLACEMENT_LIST} ;
-			if(defined $replacement_list)
-				{
-				for my $replacement (@$replacement_list)
-					{
-					my $find = $replacement->[0] ;
-					my $replace = $replacement->[1] ;
-					$element_value =~ s/$find/$replace/g ;
-					}
-				}
-			
-			if($setup->{QUOTE_VALUES} && defined $element)
-				{
-				$default_element_rendering = " = '$element_value'" ;
-				}
-			else
-				{
-				$default_element_rendering = " = $element_value" ;
-				}
-				
-			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			
-			# $setup->{DISPLAY_TIE} doesn't make sense as scalars are copied
-			last ;
-			} ;
-			
-		'HASH' eq $_ and do
-			{
-			# node is terminal if it has no children
-			$is_terminal_node++ unless %$element ;
-			
-			# node might be terminal if filter says it has no children
-			if(!$is_terminal_node && defined $setup->{RENDERER}{NODE})
-				{
-				my $children_filter_sub = $filter_sub ;
-				$children_filter_sub = $level_filters->{$level + 1} if(defined $level_filters && exists $level_filters->{$level + 1}) ;
-				
-				if(defined $children_filter_sub)
-					{
-					my @children_nodes_to_display ;
-					
-					local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}\{$element_name\}" ;
-					(undef, undef, @children_nodes_to_display) = $children_filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, \@children_nodes_to_display, $setup) ;
-					
-					$is_terminal_node++ unless @children_nodes_to_display ;
-					}
-				}
-				
-			$tag = 'H' ;
-			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			
-			if(! %{$element} && ! $setup->{NO_NO_ELEMENTS})
-				{
-				$default_element_rendering = $element_value = ' (no elements)' ;
-				}
-			
-			if(%{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
-				{
-				my $number_of_elements = keys %{$element} ;
-				my $plural = $number_of_elements > 1 ? 's' : '' ;
-				my $elements = ' (' . $number_of_elements . ' element' . $plural . ')' ; 
-				
-				$default_element_rendering .= $elements ;
-				$element_value .= $elements ;
-				}
-				
-			if($setup->{DISPLAY_TIE} && (my $tie = tied %$element))
-				{
-				$tie =~ s/=.*$// ;
-				my $tie = " (tied to '$tie')" ;
-				$default_element_rendering .= $tie ;
-				$element_value .= $tie ;
-				}
-				
-			last ;
-			} ;
-			
-		'ARRAY' eq $_ and do
-			{
-			# node is terminal if it has no children
-			$is_terminal_node++ unless(@$element) ;
-			
-			# node might be terminal if filter says it has no children
-			if(!$is_terminal_node && defined $setup->{RENDERER}{NODE})
-				{
-				my $children_filter_sub = $filter_sub ;
-				$children_filter_sub = $level_filters->{$level + 1} if(defined $level_filters && exists $level_filters->{$level + 1}) ;
-				
-				if(defined $children_filter_sub)
-					{
-					my @children_nodes_to_display ;
-					
-					local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}\[$element_name\]" ;
-					(undef, undef, @children_nodes_to_display) = $children_filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, \@children_nodes_to_display, $setup) ;
-					
-					$is_terminal_node++ unless @children_nodes_to_display ;
-					}
-				}
-				
-			$tag = 'A' ;
-			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			
-			if(! @{$element} && ! $setup->{NO_NO_ELEMENTS})
-				{
-				$default_element_rendering = $element_value .= ' (no elements)' ;
-				}
-			
-			if(@{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
-				{
-				my $plural = scalar(@{$element}) ? 's' : '' ;
-				my $elements = ' (' . @{$element} . ' element' . $plural . ')' ; 
-				
-				$default_element_rendering .= $elements ;
-				$element_value .= $elements ;
-				}
-				
-			if($setup->{DISPLAY_TIE} && (my $tie = tied @$element))
-				{
-				$tie =~ s/=.*$// ;
-				my $tie = " (tied to '$tie')" ;
-				$default_element_rendering .= $tie ;
-				$element_value .= $tie ;
-				}
-			last ;
-			} ;
-			
-		'CODE' eq $_ and do 
-			{
-			$is_terminal_node++ ;
-			$tag = 'C' ;
-			
-			#~ use Data::Dump::Streamer;
-			#~ $element_value = "----- " . Dump($element)->Out() ;
-			
-			$element_value = "$element" ;
-			$default_element_rendering= " = $element_value" ;
-			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			last ;
-			} ;
-			
-		'SCALAR' eq $_ and do
-			{
-			$tag = 'RS' ;
-			$element_address = $element_id ;
-			$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			last ;
-			} ;
-			
-		'GLOB' eq $_ and do
-			{
-			$is_terminal_node++ ;
-			$tag = 'G' ;
-			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			last ;	
-			} ;
-			
-		'REF' eq $_ and do
-			{
-			$tag = 'R' ;
-			$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-			last ;
-			} ;
-			
-		# DEFAULT, an object.
-		$tag = 'O' ;
-		
-		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
-		
-		#check if the object is empty and display that state if NO_NO_ELEMENT isn't set
-		for($element)
-			{
-			/=HASH/ and do
-				{
-				unless(%$element)
-					{
-					$is_terminal_node++  ;
-					
-					unless($setup->{NO_NO_ELEMENTS})
-						{
-						$element_value = "(Hash, empty) $element_value" ;
-						}
-					}
-				last ;
-				} ;
-			
-			/=ARRAY/ and do
-				{
-				unless(@$element)
-					{
-					$is_terminal_node++  ;
-					
-					unless($setup->{NO_NO_ELEMENTS})
-						{
-						$element_value = "(Array, empty) $element_value" ;
-						}
-					}
-				last ;
-				} ;
-			}
-			
-		if($setup->{DISPLAY_OBJECT_TYPE})
-			{
-			$element_value .= GetElementTieAndClass($setup, $element) ;
-			$default_element_rendering = " = $element_value" ;
-			}
-		}
-		
-	my $dtd_address = $tag . $already_displayed_nodes->{NEXT_INDEX} ;
-	my $address_field = '' ;
-	my $address_link ;
-	
-	if(exists $already_displayed_nodes->{$element_address})
-		{
-		$already_displayed_nodes->{NEXT_INDEX}++ ;
-		
-		$address_field = " [$dtd_address -> $already_displayed_nodes->{$element_address}]" if $setup->{DISPLAY_ADDRESS} ;
-		$address_link = $already_displayed_nodes->{$element_address} ;
-		$is_terminal_node = 1 ;
-		}
-	else	
-		{
-		$already_displayed_nodes->{$element_address} = $dtd_address ;
-		$already_displayed_nodes->{$element_address} .= " /$setup->{__DATA_PATH}" if $setup->{DISPLAY_PATH};
-		$already_displayed_nodes->{NEXT_INDEX}++ ;
-				
-		$address_field = " [$dtd_address]" if $setup->{DISPLAY_ADDRESS} ;
-		}
-		
-	#default renderer is inlined
-	unless($setup->{NO_OUTPUT})
-		{
-		my 
-			(
-			  $previous_level_separator
-			, $separator
-			, $subsequent_separator # used for  wrapping text
-			, $separator_size
-			) = GetSeparator
-					(
-					  $level
-					, $nodes_left
-					, $levels_left
-					, $setup->{START_LEVEL}
-					, $setup->{GLYPHS}
-					, $setup->{COLOR_LEVELS}
-					) ;
-					
-		if(defined $setup->{RENDERER}{NODE})
-			{
-			$output .= $setup->{RENDERER}{NODE}
-						(
-						  $element
-						, $level
-						, $is_terminal_node
-						, $previous_level_separator
-						, $separator
-						, $element_name
-						, $element_value
-						, $dtd_address
-						, $address_link
-						, $perl_size
-						, $perl_address
-						, $setup
-						) ;
-			}
-		else
-			{
-			# build in renderer
-			
-			#--------------------------
-			# wrapping	
-			#--------------------------
-			my $level_text             = GetLevelText($element, $level, $setup)	;
-			my $tree_header            = $setup->{INDENTATION} . $level_text . $previous_level_separator . $separator  ;
-			my $tree_subsequent_header = $setup->{INDENTATION} . $level_text . $previous_level_separator . $subsequent_separator ;
-			
-			my $element_description = $element_name . $default_element_rendering ;
-			
-			$perl_size = " <$perl_size> " unless $perl_size eq '' ;
-			
-			$element_description .= " $address_field$perl_size$perl_address\n" ;
-			
-			my ($columns, $rows) ;
-			if($^O ne 'MSWin32')
-				{
-				eval "(\$columns, \$rows) = Term::Size::chars *STDOUT{IO} ;" ;
-				}
-			else
-				{
-				($columns, $rows) = $WIN32_CONSOLE->Size();
-				}
-			
-			$columns = $setup->{VIRTUAL_WIDTH} if $columns eq '' ;
-			
-			local $Text::Wrap::columns  = $columns ;
-			local $Text::Wrap::unexpand = 0 ;
-			
-			if(length($tree_header) + length($element_description) > $columns && ! $setup->{NO_WRAP})
-				{
-				$output .= wrap
-						(
-						  $tree_header 
-						, $tree_subsequent_header 
-						, $element_description
-						) ;
-				}
-			else
-				{
-				$output .= $tree_header ;
-				$output .= $element_description ;
-				}
-			}
-		}
-		
-	$output .= TreeDumper($element, $setup, $level + 1, $levels_left, $already_displayed_nodes) unless $is_terminal_node ;
+	die "Data::TreeDumper couldn't load renderer '$setup->{RENDERER}{NAME}':\n$@" if $@ ;
 	}
 	
-if($level == 0)
+unless($setup->{NO_OUTPUT})
 	{
-	if(defined $setup->{RENDERER}{END})
+	my $root_tie_and_class = GetElementTieAndClass($setup, $tree) ;
+	
+	if(defined $setup->{RENDERER}{BEGIN})
 		{
-		$output .= $setup->{RENDERER}{END}($setup) ;
+		my $root_address = '' ;
+		$root_address = GetReferenceType($tree) . 'O' if($setup->{DISPLAY_ROOT_ADDRESS}) ;
+		
+		my $perl_address = '' ;
+		$perl_address = $tree                         if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		
+		my $perl_size = '' ;
+		$perl_size = total_size($tree)                if($setup->{DISPLAY_PERL_SIZE}) ;
+		
+		$output .= $setup->{RENDERER}{BEGIN}($setup->{TITLE} . $root_tie_and_class, $root_address, $tree, $perl_size, $perl_address, $setup) ;
 		}
 	else
 		{
-		unless ($setup->{USE_ASCII})
+		$output .= $setup->{INDENTATION} ;
+		
+		$output .= defined $setup->{TITLE} ? $setup->{TITLE} : '' ;
+		$output .= $root_tie_and_class ;
+		$output .= ' [' . GetReferenceType($tree) . "0]" if($setup->{DISPLAY_ROOT_ADDRESS}) ;
+		$output .= " $tree"                              if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		$output .= " <" . total_size($tree) . ">"        if($setup->{DISPLAY_PERL_SIZE}) ;
+		$output .= "\n" ;
+		}
+	}
+	
+return($output) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub RenderNode
+{
+
+my
+(
+  $element
+, $element_name
+, $level
+
+
+, $previous_level_separator
+, $separator
+, $subsequent_separator
+, $separator_size
+
+, $is_terminal_node
+, $perl_size
+, $perl_address
+, $tag
+, $element_value
+, $default_element_rendering
+, $dtd_address
+, $address_field
+, $address_link
+
+, $setup
+) = @_ ;
+
+my $output = '' ;
+
+return('') if $setup->{NO_OUTPUT} ;
+
+if(defined $setup->{RENDERER}{NODE})
+	{
+	#~ #TODO:  some elements are not available in this function, pass them from caller
+	$output .= $setup->{RENDERER}{NODE}
+				(
+				  $element
+				, $level
+				, $is_terminal_node
+				, $previous_level_separator
+				, $separator
+				, $element_name
+				, $element_value
+				, $dtd_address
+				, $address_link
+				, $perl_size
+				, $perl_address
+				, $setup
+				) ;
+	}
+else
+	{
+	#--------------------------
+	# wrapping	
+	#--------------------------
+	my $level_text             = GetLevelText($element, $level, $setup)	;
+	my $tree_header            = $setup->{INDENTATION} . $level_text . $previous_level_separator . $separator  ;
+	my $tree_subsequent_header = $setup->{INDENTATION} . $level_text . $previous_level_separator . $subsequent_separator ;
+	
+	my $element_description = $element_name . $default_element_rendering ;
+	
+	$perl_size = " <$perl_size> " unless $perl_size eq '' ;
+	
+	$element_description .= " $address_field$perl_size$perl_address\n" ;
+	
+	if($setup->{NO_WRAP})
+		{
+		$output .= $tree_header ;
+		$output .= $element_description ;
+		}
+	else
+		{
+		my ($columns, $rows) ;
+		if($^O ne 'MSWin32')
 			{
-			# convert to ANSI
-			$output =~ s/\|  /\033(0\170  \033(B/g ;
-			$output =~ s/\|- /\033(0\164\161 \033(B/g ;
-			$output =~ s/\`- /\033(0\155\161 \033(B/g ;
+			eval "(\$columns, \$rows) = Term::Size::chars *STDOUT{IO} ;" ;
+			}
+		else
+			{
+			($columns, $rows) = $WIN32_CONSOLE->Size();
+			}
+		
+		if($columns eq '')
+			{
+			$columns = $setup->{VIRTUAL_WIDTH}  ;
+			}
+		else
+			{
+			$columns = $setup->{WRAP_WIDTH} if defined $setup->{WRAP_WIDTH} ;
+			}
+		
+		local $Text::Wrap::columns  = $columns ;
+		local $Text::Wrap::unexpand = 0 ;
+		
+		if(length($tree_header) + length($element_description) > $columns && ! $setup->{NO_WRAP})
+			{
+			$output .= wrap
+					(
+					  $tree_header 
+					, $tree_subsequent_header 
+					, $element_description
+					) ;
+			}
+		else
+			{
+			$output .= $tree_header ;
+			$output .= $element_description ;
 			}
 		}
 	}
 	
 return($output) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub GetElementInfo
+{
+my 
+(
+  $element
+, $element_name
+, $element_address
+, $element_id
+, $level
+, $already_displayed_nodes
+, $setup
+) = @_ ;
+
+my $perl_size = '' ;
+
+$perl_size = total_size($element) if($setup->{DISPLAY_PERL_SIZE}) ;
+
+my $perl_address               = "" ;
+my $tag                        = '' ;
+my $element_value              = '' ;
+my $is_terminal_node           = 0 ;
+my $default_element_rendering  = '' ;
+
+for(ref $element)
+	{
+	'' eq $_ and do
+		{
+		$is_terminal_node++ ;
+		$tag = 'S' ;
+		
+		$element_address = $already_displayed_nodes->{NEXT_INDEX} ;
+		
+		my $value = defined $element ? $element : 'undef' ;
+		$element_value = "$value" ;
+		
+		my $replacement_list = $setup->{REPLACEMENT_LIST} ;
+		if(defined $replacement_list)
+			{
+			for my $replacement (@$replacement_list)
+				{
+				my $find = $replacement->[0] ;
+				my $replace = $replacement->[1] ;
+				$element_value =~ s/$find/$replace/g ;
+				}
+			}
+		
+		if($setup->{QUOTE_VALUES} && defined $element)
+			{
+			$default_element_rendering = " = '$element_value'" ;
+			}
+		else
+			{
+			$default_element_rendering = " = $element_value" ;
+			}
+			
+		$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		
+		# $setup->{DISPLAY_TIE} doesn't make sense as scalars are copied
+		last ;
+		} ;
+		
+	'HASH' eq $_ and do
+		{
+		$is_terminal_node = IsTerminalNode
+			(
+			  $element
+			, $element_name
+			, $level
+			, $setup
+			) ;
+			
+		$tag = 'H' ;
+		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		
+		if(! %{$element} && ! $setup->{NO_NO_ELEMENTS})
+			{
+			$default_element_rendering = $element_value = ' (no elements)' ;
+			}
+		
+		if(%{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+			{
+			my $number_of_elements = keys %{$element} ;
+			my $plural = $number_of_elements > 1 ? 's' : '' ;
+			my $elements = ' (' . $number_of_elements . ' element' . $plural . ')' ; 
+			
+			$default_element_rendering .= $elements ;
+			$element_value .= $elements ;
+			}
+			
+		if($setup->{DISPLAY_TIE} && (my $tie = tied %$element))
+			{
+			$tie =~ s/=.*$// ;
+			my $tie = " (tied to '$tie')" ;
+			$default_element_rendering .= $tie ;
+			$element_value .= $tie ;
+			}
+			
+		last ;
+		} ;
+		
+	'ARRAY' eq $_ and do
+		{
+		$is_terminal_node = IsTerminalNode
+			(
+			  $element
+			, $element_name
+			, $level
+			, $setup
+			) ;
+			
+		$tag = 'A' ;
+		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		
+		if(! @{$element} && ! $setup->{NO_NO_ELEMENTS})
+			{
+			$default_element_rendering = $element_value .= ' (no elements)' ;
+			}
+		
+		if(@{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+			{
+			my $plural = scalar(@{$element}) ? 's' : '' ;
+			my $elements = ' (' . @{$element} . ' element' . $plural . ')' ; 
+			
+			$default_element_rendering .= $elements ;
+			$element_value .= $elements ;
+			}
+			
+		if($setup->{DISPLAY_TIE} && (my $tie = tied @$element))
+			{
+			$tie =~ s/=.*$// ;
+			my $tie = " (tied to '$tie')" ;
+			$default_element_rendering .= $tie ;
+			$element_value .= $tie ;
+			}
+		last ;
+		} ;
+		
+	'CODE' eq $_ and do 
+		{
+		$is_terminal_node++ ;
+		$tag = 'C' ;
+		
+		#~ use Data::Dump::Streamer;
+		#~ $element_value = "----- " . Dump($element)->Out() ;
+		
+		$element_value = "$element" ;
+		$default_element_rendering= " = $element_value" ;
+		$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		last ;
+		} ;
+		
+	'SCALAR' eq $_ and do
+		{
+		$is_terminal_node = 0 ;
+		$tag = 'RS' ;
+		$element_address = $element_id ;
+		$perl_address = "$element_id" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		last ;
+		} ;
+		
+	'GLOB' eq $_ and do
+		{
+		$is_terminal_node++ ;
+		$tag = 'G' ;
+		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		last ;	
+		} ;
+		
+	'REF' eq $_ and do
+		{
+		$is_terminal_node = 0 ;
+		$tag = 'R' ;
+		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		last ;
+		} ;
+		
+	# DEFAULT, an object.
+	$tag = 'O' ;
+
+	if($element =~ /=HASH/ )
+		{
+		$tag = 'OH' ;
+		}
+	elsif($element =~ /=ARRAY/)
+		{
+		$tag = 'OA' ;
+		}
+	elsif($element =~ /=GLOB/)
+		{
+		$tag = 'OG' ;
+		}
+	elsif($element =~ /=SCALAR/)
+		{
+		$tag = 'OS' ;
+		} 
+
+	$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+	
+	#check if the object is empty and display that state if NO_NO_ELEMENT isn't set
+	($is_terminal_node, my $element_value) 
+		= IsTerminalNode
+			(
+			  $element
+			, $element_name
+			, $level
+			, $setup
+			) ;
+			
+	if($setup->{DISPLAY_OBJECT_TYPE})
+		{
+		$element_value .= GetElementTieAndClass($setup, $element) ;
+		$default_element_rendering = " = $element_value" ;
+		}
+	}
+
+# address
+my $dtd_address = $tag . $already_displayed_nodes->{NEXT_INDEX} ;
+
+my $address_field = '' ;
+my $address_link ;
+
+if(exists $already_displayed_nodes->{$element_address})
+	{
+	$already_displayed_nodes->{NEXT_INDEX}++ ;
+	
+	$address_field = " [$dtd_address -> $already_displayed_nodes->{$element_address}]" if $setup->{DISPLAY_ADDRESS} ;
+	$address_link = $already_displayed_nodes->{$element_address} ;
+	$is_terminal_node = 1 ;
+	}
+else	
+	{
+	$already_displayed_nodes->{$element_address} = $dtd_address ;
+	$already_displayed_nodes->{$element_address} .= " /$setup->{__DATA_PATH}" if $setup->{DISPLAY_PATH};
+	$already_displayed_nodes->{NEXT_INDEX}++ ;
+			
+	$address_field = " [$dtd_address]" if $setup->{DISPLAY_ADDRESS} ;
+	}
+
+
+return
+	(
+	  $is_terminal_node
+	, $perl_size
+	, $perl_address
+	, $tag
+	, $element_value
+	, $default_element_rendering
+	, $dtd_address
+	, $address_field
+	, $address_link
+	) ;
+}
+#----------------------------------------------------------------------
+
+sub IsTerminalNode
+{
+my 
+(
+  $element
+, $element_name
+, $level
+, $setup
+) = @_ ;
+
+my $is_terminal_node = 0 ;
+my $element_value = '' ;
+
+my ($filter_sub, $filter_argument) = GetFilter($setup, $level) ;
+
+for(ref $element)
+	{
+	'' eq $_ and do
+		{
+		$is_terminal_node = 1 ;
+		last ;
+		} ;
+		
+	'HASH' eq $_ and do
+		{
+		# node is terminal if it has no children
+		$is_terminal_node++ unless %$element ;
+		
+		# node might be terminal if filter says it has no children
+		if(!$is_terminal_node && defined $setup->{RENDERER}{NODE})
+			{
+			if(defined $filter_sub)
+				{
+				my @children_nodes_to_display ;
+				
+				local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}\{$element_name\}" ;
+				(undef, undef, @children_nodes_to_display) 
+					= $filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, \@children_nodes_to_display, $setup, $filter_argument) ;
+				
+				$is_terminal_node++ unless @children_nodes_to_display ;
+				}
+			}
+		last ;
+		} ;
+		
+	'ARRAY' eq $_ and do
+		{
+		# node is terminal if it has no children
+		$is_terminal_node++ unless(@$element) ;
+		
+		# node might be terminal if filter says it has no children
+		if(!$is_terminal_node && defined $setup->{RENDERER}{NODE})
+			{
+			if(defined $filter_sub)
+				{
+				my @children_nodes_to_display ;
+				
+				local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}\[$element_name\]" ;
+				(undef, undef, @children_nodes_to_display)
+					= $filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, \@children_nodes_to_display, $setup, $filter_argument) ;
+				
+				$is_terminal_node++ unless @children_nodes_to_display ;
+				}
+			}
+		last ;
+		} ;
+		
+	'CODE' eq $_ and do 
+		{
+		$is_terminal_node = 1 ;
+		last ;
+		} ;
+		
+	'SCALAR' eq $_ and do
+		{
+		$is_terminal_node = 0 ;
+		last ;
+		} ;
+		
+	'GLOB' eq $_ and do
+		{
+		$is_terminal_node = 1 ;
+		last ;	
+		} ;
+		
+	'REF' eq $_ and do
+		{
+		$is_terminal_node = 0 ;
+		last ;
+		} ;
+		
+	# DEFAULT, an object.
+	#check if the object is empty and display that state if NO_NO_ELEMENT isn't set
+	for($element)
+		{
+		/=HASH/ and do
+			{
+			unless(%$element)
+				{
+				$is_terminal_node++  ;
+				
+				unless($setup->{NO_NO_ELEMENTS})
+					{
+					$element_value = "(Hash, empty) $element_value" ;
+					}
+				}
+			last ;
+			} ;
+		
+		/=ARRAY/ and do
+			{
+			unless(@$element)
+				{
+				$is_terminal_node++  ;
+				
+				unless($setup->{NO_NO_ELEMENTS})
+					{
+					$element_value = "(Array, empty) $element_value" ;
+					}
+				}
+			last ;
+			} ;
+		}
+	}
+
+return($is_terminal_node, $element_value) if wantarray ;
+return($is_terminal_node) ;
 }
 
 #----------------------------------------------------------------------
@@ -866,6 +1217,8 @@ return($element_type) ;
 sub DefaultNodesToDisplay
 {
 my ($tree, undef, undef, $keys) = @_ ;
+
+return('', undef) if '' eq ref $tree ;
 
 my $tree_type = ref $tree ;
 
@@ -982,7 +1335,7 @@ return sub
 } ;
 
 #-------------------------------------------------------------------------------
-# renderinf support
+# rendering support
 #-------------------------------------------------------------------------------
 
 { # make %types private
@@ -998,7 +1351,8 @@ my %types =
 
 sub GetReferenceType
 {
-my $reference = ref $_[0] ;
+my $element = shift ;
+my $reference = ref $element ;
 	
 if(exists $types{$reference})
 	{
@@ -1006,7 +1360,26 @@ if(exists $types{$reference})
 	}
 else
 	{
-	return('O') ;
+	my $tag = 'O' ;
+
+	if($element =~ /=HASH/ )
+		{
+		$tag = 'OH' ;
+		}
+	elsif($element =~ /=ARRAY/)
+		{
+		$tag = 'OA' ;
+		}
+	elsif($element =~ /=GLOB/)
+		{
+		$tag = 'OG' ;
+		}
+	elsif($element =~ /=SCALAR/)
+		{
+		$tag = 'OS' ;
+		} 
+		
+	return($tag) ;
 	}
 }
 
@@ -1054,7 +1427,6 @@ return($level_text) ;
 
 sub GetSeparator 
 {
-# This sub is a good candidate for Memoize
 my 
 	(
 	  $level
@@ -1091,7 +1463,7 @@ for my $current_level ((1 - $start_level) .. ($level - 1))
 			}
 		}
 		
-	if($levels_left->[$current_level] == 0)
+	if(! defined $levels_left->[$current_level] || $levels_left->[$current_level] == 0)
 		{
 		#~ $previous_level_separator .= "$color_start   $color_end" ;
 		$previous_level_separator .= "$color_start$glyphs->[3]$color_end" ;
@@ -1323,7 +1695,7 @@ B<C>: Code,
 
 B<R>: Reference,
 B<RS>: Scalar reference.
-B<O>: Object,
+B<Ox>: Object, where x is the object undelying type
 
 =head2 Empty Hash or Array
 
@@ -1336,7 +1708,7 @@ No structure is displayed for empty hashes or arrays, the string "no elements" i
 =head1 Configuration and Overrides
 
 Data::TreeDumper has configuration options you can set to modify the output it
-generates. I<DumpTree> take overrides as trailing arguments. Those
+generates. I<DumpTree> and I<PrintTree> take overrides as trailing arguments. Those
 overrides are active within the current dump call only.
 
   ex:
@@ -1344,10 +1716,17 @@ overrides are active within the current dump call only.
   
   # maximum depth set to 1 for the duration of the call only
   print DumpTree($s, 'title', MAX_DEPTH => 1) ;
+  PrintTree($s, 'title', MAX_DEPTH => 1) ; # shortcut for the above call
 	
   # maximum depth is 2
   print DumpTree($s, 'title') ;
   
+=head2 $Data::TreeDumper::Displaycallerlocation
+
+This package variable is very usefull when you use B<Data::TreeDumper>, ie for debugging and don't 
+know where you called B<PrintTree> or B<DumpTree>. I displays the filename and line of call on STDOUT.
+It can't also be set as an override,  DISPLAY_CALLER_LOCATION => 1.
+
 =head2 NO_PACKAGE_SETUP
 
 Sometimes, the package setup you have is not what you want to use. resetting the variable,
@@ -1389,7 +1768,7 @@ can suppress this display by using:
 
 B<Data::TreeDumper> will display the inheritance hierarchy for the object:
 
-  |- object =  blessed in 'SuperObject' <- Potatoe [O55]
+  |- object =  blessed in 'SuperObject' <- Potatoe [OH55]
   |  `- Data = 0  [S56]
 
 =head2 DISPLAY_AUTOLOAD
@@ -1429,14 +1808,15 @@ Setting this option will show the size of the memory allocated for each element 
 
   DISPLAY_PERL_SIZE => 1 
 
+The excellent L<Devel::Size> is used to compute the size of the perl data. If you have deep circular data structures,
+expect the dump time to be slower, 50 times slower or more.
+
 =head3 DISPLAY_PERL_ADDRESS
 
 Setting this option will show the perl-address of the dumped data.
 
   DISPLAY_PERL_ADDRESS => 1 
   
-See also the excellent B<Devel::Size::Report> from which I stole the idea.
-
 =head2 REPLACEMENT_LIST
 
 Scalars may contain non printable characters that you rather not see in a dump. One of the
@@ -1488,6 +1868,7 @@ Data::TreeDumper can sort the tree nodes with a user defined subroutine. By defa
 
   FILTER => \&ReverseSort
   FILTER => \&Data::TreeDumper::HashKeysSorter
+  FILTER_ARGUMENT => ['your', 'arguments']
 
 The filter routine is passed these arguments:
 
@@ -1504,17 +1885,14 @@ be safely ignored.
 
 =item 5 - the dumpers setup
 
+=item 5 - the filter arguments (see below)
+
 =back
 
 The filter returns the node's type, an eventual new structure (see below) and a list of 'keys' to display. The keys are hash keys or array indexes.
 
-
 In Perl:
-		die $@ if $@ ;
-		}
-	else
-		{
-
+  
   ($tree_type, $replacement_tree, @nodes_to_display) = $your_filter->($tree, $level, $path, $nodes_to_display, $setup) ;
 
 Filter are not as complicated as they sound and they are very powerfull, 
@@ -1525,6 +1903,29 @@ will give him the proper credit.
 Lots of examples can be found in I<filters.pl> and I'll be glad to help if 
 you want to develop a specific filter.
 
+=head3 FILTER_ARGUMENT
+
+it is possible to pass arguments to your filter, passing a reference allows you to modify
+the arguments when the filter is run (that happends for each node).
+
+ sub SomeSub
+ {
+ my $counter = 0 ;
+ my $data_structure = {.....} ;
+ 
+ DumpTree($data_structure, 'title', FILTER => \&CountNodes, FILTER_ARGUMENT => \$counter) ;
+ 
+ print "\$counter = $counter\n" ;
+ }
+ 
+ sub CountNodes
+ {
+ my ($structure, $level, $path, $nodes_to_display, $setup, $counter) = @_ ;
+ $$counter++ ; # remember to apss references if you want them to be changed by the filter
+ 
+ return(DefaultNodesToDisplay($structure)) ;
+ }
+ 
 =head3 Key removal
 
 Entries can be removed from the display by not returning their keys.
@@ -1788,23 +2189,25 @@ data structure, you can prune arbitrary branches to speedup processing.
   # anything that is not a hash (the part of the tree that interests us in this case) is pruned
   
   my $number_of_nodes_in_the_dependency_tree = 0 ;
-  my $node_counter = sub 
-                      {
-                      my $tree = shift ;
-		      if('HASH' eq ref $tree && exists $tree->{__NAME})
-	                 {
-			 $number_of_nodes_in_the_dependency_tree++ if($tree->{__NAME} !~ /^__/) ;
-			 
-	                 return('HASH', $tree, grep {! /^__/} keys %$tree) ; # prune to run faster
-	                 }
-                      else
-	                 {
-	                 return('SCALAR', 1) ; # prune
-	                 }
-                      } ;
+  my $node_counter = 
+	sub 
+	{
+	my $tree = shift ;
+	if('HASH' eq ref $tree && exists $tree->{__NAME})
+		{
+		$number_of_nodes_in_the_dependency_tree++ if($tree->{__NAME} !~ /^__/) ;
+		
+		return('HASH', $tree, grep {! /^__/} keys %$tree) ; # prune to run faster
+		}
+	else
+		{
+		return('SCALAR', 1) ; # prune
+		}
+	} ;
 		
   DumpTree($dependency_tree, '', NO_OUTPUT => 1, FILTER => $node_counter) ;
 
+See the example under L<FILTER> which passes arguments through Data::TreeDumper instead for using a closure as above
 
 =head2 Start level
 
@@ -1954,7 +2357,7 @@ wrapped multiple times so they snuggly fit your screen.
 
   |  |        |- 1 [S21] = 1
   |  |        `- 2 [S22] = 2
-  |  `- 3 [O23 -> R17]
+  |  `- 3 [OH23 -> R17]
   |- ARRAY_ZERO [A24]
   |- B [S25] = scalar
   |- Long_name Long_name Long_name Long_name Long_name Long_name 
@@ -1962,6 +2365,10 @@ wrapped multiple times so they snuggly fit your screen.
   |    Long_name Long_name Long_name Long_name Long_name [S26] = 0
 
 You can direct DTD to not wrap your text by setting B<NO_WRAP => 1>.
+
+=head2 WRAP_WIDTH
+
+if this option is set, B<Data::TreeDumper> will use it instead for the console width.
 
 =head1 Custom Rendering
 
@@ -2131,6 +2538,8 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 
 =item * USE_ASCII 
 
+=item * WRAP_WIDTH
+
 =item * VIRTUAL_WIDTH 
 
 =item * NO_OUTPUT
@@ -2151,35 +2560,38 @@ B<VIRTUAL_WIDTH> instead. Default is 120.
 
 =head3 Configuration Variables
 
-  $Data::TreeDumper::Startlevel           = 1 ;
-  $Data::TreeDumper::Useascii             = 1 ;
-  $Data::TreeDumper::Maxdepth             = -1 ;
-  $Data::TreeDumper::Indentation          = '' ;
-  $Data::TreeDumper::Virtualwidth         = 120 ;
-  $Data::TreeDumper::Displayrootaddress   = 0 ;
-  $Data::TreeDumper::Displayaddress       = 1 ;
-  $Data::TreeDumper::Displaypath          = 0 ;
-  $Data::TreeDumper::Displayobjecttype    = 1 ;
-  $Data::TreeDumper::Displayinheritance   = 0 ;
-  $Data::TreeDumper::Displaytie           = 0 ;
-  $Data::TreeDumper::Displayautoload      = 0 ;
-  $Data::TreeDumper::Displayperlsize      = 0 ;
-  $Data::TreeDumper::Displayperladdress   = 0 ;
-  $Data::TreeDumper::Filter               = \&FlipEverySecondOne ;
-  $Data::TreeDumper::Levelfilters         = {1 => \&Filter_1, 5 => \&Filter_5} ;
-  $Data::TreeDumper::Numberlevels         = 0 ;
-  $Data::TreeDumper::Glyphs               = ['|  ', '|- ', '`- ', '   '] ; 
-  $Data::TreeDumper::Colorlevels          = undef ;
-  $Data::TreeDumper::Nooutput             = 0 ; # generate an output
-  $Data::TreeDumper::Quotehashkeys        = 0 ;
+  $Data::TreeDumper::Startlevel            = 1 ;
+  $Data::TreeDumper::Useascii              = 1 ;
+  $Data::TreeDumper::Maxdepth              = -1 ;
+  $Data::TreeDumper::Indentation           = '' ;
+  $Data::TreeDumper::Virtualwidth          = 120 ;
+  $Data::TreeDumper::Displayrootaddress    = 0 ;
+  $Data::TreeDumper::Displayaddress        = 1 ;
+  $Data::TreeDumper::Displaypath           = 0 ;
+  $Data::TreeDumper::Displayobjecttype     = 1 ;
+  $Data::TreeDumper::Displayinheritance    = 0 ;
+  $Data::TreeDumper::Displaytie            = 0 ;
+  $Data::TreeDumper::Displayautoload       = 0 ;
+  $Data::TreeDumper::Displayperlsize       = 0 ;
+  $Data::TreeDumper::Displayperladdress    = 0 ;
+  $Data::TreeDumper::Filter                = \&FlipEverySecondOne ;
+  $Data::TreeDumper::Levelfilters          = {1 => \&Filter_1, 5 => \&Filter_5} ;
+  $Data::TreeDumper::Numberlevels          = 0 ;
+  $Data::TreeDumper::Glyphs                = ['|  ', '|- ', '`- ', '   '] ; 
+  $Data::TreeDumper::Colorlevels           = undef ;
+  $Data::TreeDumper::Nooutput              = 0 ; # generate an output
+  $Data::TreeDumper::Quotehashkeys         = 0 ;
+  $Data::TreeDumper::Displaycallerlocation = 0 ;
 
 =head3 API
+
+B<PrintTree>prints on STDOUT the output of B<DumpTree>.
 
 B<DumpTree> uses the configuration variables defined above. It takes the following arguments:
 
 =over 2
 
-=item [1] structure_to_dump, this must be a reference
+=item [1] structure_to_dump
 
 =item [2] title, a string to prepended to the tree (optional)
 
@@ -2197,7 +2609,7 @@ B<DumpTrees> uses the configuration variables defined above. It takes the follow
 
 =over 4
 
-=item [a] structure_to_dump, this must be a reference
+=item [a] structure_to_dump
 
 =item [b] title, a string to prepended to the tree (optional)
 
@@ -2268,8 +2680,7 @@ B<Data::TreeDumper::Renderer::DHTML>.
 
 B<Devel::Size::Report>.B<Devel::Size>.
 
-B<PBS>: the Perl Build System from which B<Data::TreeDumper> was extracted. Contact the author
-for more information about B<PBS>.
+B<PBS>: the Perl Build System from which B<Data::TreeDumper> was extracted.
 
 =cut
 

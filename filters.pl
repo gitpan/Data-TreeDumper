@@ -9,7 +9,7 @@ use Data::TreeDumper ;
 our $s ;
 do "s" ;
 
-$Data::TreeDumper::Useascii = 0 ;
+$Data::TreeDumper::Useascii = 1 ;
 
 my $dump_separator = "\n" . '-' x 40 . "\n\n" ;
 
@@ -64,23 +64,22 @@ print $dump_separator ;
 
 sub PathFilter
 	{
-	my $tree = shift ;
-	my $level = shift ;
-	my $path = shift ;
+	my ($tree, $level, $path, $nodes_to_display, $setup, $filter_argument) = @_ ;
 	
-	print "Filtering $tree at path: $path\n" ;
+	print "Filtering $tree at level: $level, path: $path\n" ;
+	
+	PrintTree $setup->{__PATH_ELEMENTS}, '__PATH_ELEMENTS', MAX_DEPTH => 2 ;
 	
 	return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 	}
 
 print "Show the path a filter gets\n" ;
-print DumpTree($s, "\nTree", FILTER => \&PathFilter, DISPLAY_PERL_SIZE => 1, DISPLAY_PERL_ADDRESS => 1) ;
+print DumpTree($s, "Tree", FILTER => \&PathFilter, NO_OUTPUT => 1) ;
 print $dump_separator ;
 
 #-------------------------------------------------------------------------------
 # removing nodes from dump
 #-------------------------------------------------------------------------------
-
 sub RemoveAFromHash
 {
 # Entries matching /^a/i have '*' prepended

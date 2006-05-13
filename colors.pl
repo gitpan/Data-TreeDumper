@@ -9,7 +9,7 @@ use Data::TreeDumper ;
 our $s ;
 do "s" ;
 
-$Data::TreeDumper::Useascii = 0 ;
+$Data::TreeDumper::Useascii = 1 ;
 
 print DumpTree($s, 'Unaltered data structure') ;
 
@@ -95,7 +95,7 @@ if('HASH' eq ref $tree)
 return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 }
 
-print Data::TreeDumper::DumpTree($s, "Colored labels", FILTER => \&ColorLabel) ;
+print Data::TreeDumper::DumpTree($s, "Colored labels (using a filter)", FILTER => \&ColorLabel) ;
 
 #allowing for a tree color
 

@@ -1,15 +1,34 @@
 
+
+Talk with Devel::Size module author to make size dumping faster
+
+hash key sorting is alphanumeric giving the list '1, 2, 21, 22, 3, ...)
+
+wrap error could be when the last line needs to be wrapped (that could be the only one line)
+
+reference to reference is not dumped properly
+	my $sub = sub {} ;
+	my $h = {} ;
+	my %tree1 = ( a=> \$h , A => \$sub ) ;
+
+
 Add option name verification so we stop passing the wrong names!
 	=> dump a list of the available names
 		=> soundex the closes
-			=> take the closest and display only a warning!
+			=> take the closest and display only a warning?
 
 Add the possibility to prune self not only children
 
-Accept non reference input
-	=> implemented but not accepted yet
-
 Add DISPLAY_NUMBER_OF_ELEMENTS
+
+#Accept non reference input
+
+# display caller location
+
+# add a PrintTree function
+
+!address label containing a reference could be displayed in another color
+	when generating ansi codes
 
 #display tie for other types than arrays and hashes
 

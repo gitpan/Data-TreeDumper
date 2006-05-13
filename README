@@ -1,16 +1,9 @@
-Data/TreeDumper version
-========================
-
-0.26  Tue Sep 14 23:00:00 2005
+Data/TreeDumper
+===============
 
 Data::TreeDumper dumps any data structure. Try the examples
 that come with Data::TreeDumper.
 
-In this release:
-	FIXED: is_terminal unproperly set for empty objects (found by Ari Jolma)
-	ADDED: display of object underlying type and it's emptiness state
-	FIXED: made "NO_ELEMENTS, NUMBER_OF_ELEMENTS, TIE available to renderers
-	
 Ex:
 my $tree = { ... } ;
 print DumpTree($tree, 'Tree:') ;

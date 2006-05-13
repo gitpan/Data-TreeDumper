@@ -1,5 +1,26 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.31
+	FIXED: DTD wouldn't iterate in terminal node (hashes, arrays without elements are terminal)
+	ADDED: filter argument ($setup->{FILTER_ARGUMENT})
+	ADDED: path elements ($setup->{__PATH_ELEMENTS})
+	ADDED: $setup->{__PATH_ELEMENTS} example to filter.pl
+	ADDED: scalar_and_origine.pl
+
+0.30
+	ADDED: Accept scalar variables
+	ADDED: documentation for $Data::TreeDumper::Displaycallerlocation
+	ADDED: PrintTree and display of caller locations
+
+0.29
+	ADDED: object underlying type is displayed in the type tag
+	FIXED; typos O for 0 and inversly
+	
+0.28
+	REMOVED: Allocation of console in Win32 that displayed a console for GUI apps
+	ADDED: WRAP_WIDTH
+	CHANGED: refactored code and merged changes with Diff module
+
 0.26  
 	FIXED: is_terminal unproperly set for empty objects (found by Ari Jolma)
 	ADDED: display of object underlying type and it's emptiness state
