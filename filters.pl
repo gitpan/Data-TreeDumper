@@ -56,8 +56,71 @@ print DumpTree
 		, 2 => GenerateFilter('c')
 		}
 	) ;
+
 print $dump_separator ;
 
+#-------------------------------------------------------------------------------
+# type filter
+#-------------------------------------------------------------------------------
+
+# this  is a constricted example but it serves its pupose
+# all_entries_filter returns a an empty array for all the tree elements
+# except the top element (the tree itself) or we wouldn't get any output
+# We set the type filters for type 'SuperObject'. the filter overrides the global filter
+# as it has higher priority
+
+sub all_entries_filter
+{
+my ($tree, $level, $path, $nodes_to_display, $setup, $filter_argument) = @_ ;
+
+return ('ARRAY', []) if $level != 0 ;
+
+return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
+}
+
+print DumpTree
+	(
+	$s
+	, 'type filters'
+	, DISPLAY_TIE => 1
+	, DISPLAY_NUMBER_OF_ELEMENTS => 1
+	#~ , FILTER => \&all_entries_filter
+	, TYPE_FILTERS =>
+		{
+		  Regexp =>
+				sub
+					{
+					my $tree = shift ;
+					return ('HASH', {THE_REGEXP=> "$tree"}, 'THE_REGEXP') ;
+					}
+		, SuperObject =>
+				sub
+					{
+					my $tree = shift ;
+					
+					# while writting I got bitten as I thought all 'superObject's where hashes and I could
+					# run keys %$tree on the object but the example data has a tied array which is also blessed
+					# in 'SuperObjec'. So I had to add:  if("$tree" =~ /=HASH/ ) 
+					
+					if("$tree" =~ /=HASH/ )
+						{
+						my $number_of_keys  = my @keys = keys %$tree ;
+						return ('HASH', {number_of_keys => $number_of_keys}, 'number_of_keys') ;
+						}
+						
+					return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
+					}
+		, ARRAY =>
+				sub
+					{
+					my $tree = shift ;
+					return ('HASH', {ARRAY_FILTER => 1}, 'ARRAY_FILTER') ;
+					}
+		}
+	) ;
+	
+print $dump_separator ;
+die ;
 #-------------------------------------------------------------------------------
 # path filter
 #-------------------------------------------------------------------------------

@@ -14,7 +14,7 @@ our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(DumpTree PrintTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.31' ;
+our $VERSION = '0.32' ;
 
 my $WIN32_CONSOLE ;
 
@@ -36,6 +36,7 @@ BEGIN
 	
 use Text::Wrap  ;
 use Class::ISA ;
+use Sort::Naturally ;
 
 #-------------------------------------------------------------------------------
 # setup values
@@ -46,6 +47,7 @@ our %setup =
 	  FILTER                 => undef
 	, FILTER_ARGUMENT        => undef
 	, LEVEL_FILTERS          => undef
+	, TYPE_FILTERS           => undef
 	, USE_ASCII              => 1
 	, MAX_DEPTH              => -1
 	, INDENTATION            => ''
@@ -91,6 +93,7 @@ our %setup =
 our $Filter               = $setup{FILTER} ;
 our $Filterarguments      = $setup{FILTER_ARGUMENT} ;
 our $Levelfilters         = $setup{LEVEL_FILTERS} ;
+our $Typefilters          = $setup{TYPE_FILTERS} ;
 our $Useascii             = $setup{USE_ASCII} ;
 our $Maxdepth             = $setup{MAX_DEPTH} ;
 our $Indentation          = $setup{INDENTATION} ;
@@ -126,6 +129,7 @@ return
 	  FILTER                 => $Data::TreeDumper::Filter
 	, FILTER_ARGUMENT        => $Data::TreeDumper::Filterarguments
 	, LEVEL_FILTERS          => $Data::TreeDumper::Levelfilters
+	, TYPE_FILTERS           => $Data::TreeDumper::Typefilters
 	, USE_ASCII              => $Data::TreeDumper::Useascii
 	, MAX_DEPTH              => $Data::TreeDumper::Maxdepth
 	, INDENTATION            => $Data::TreeDumper::Indentation
@@ -199,17 +203,33 @@ if($Displaycallerlocation)
 	print "$location\n" ;
 	}
 
+my %local_setup ;
+
 if(exists $overrides{NO_PACKAGE_SETUP} && $overrides{NO_PACKAGE_SETUP})
 	{
-	return(TreeDumper($structure_to_dump, {TITLE => $title, %setup, %overrides})) ;
+	%local_setup = (%setup, %overrides) ;
 	}
 else
 	{
-	return(TreeDumper($structure_to_dump, {TITLE => $title, GetPackageSetup(), %overrides})) ;
+	%local_setup = (GetPackageSetup(), %overrides) ;
 	}
+	
+unless (exists $local_setup{TYPE_FILTERS}{Regexp})
+	{
+	# regexp objecjts (created with qr) are dumped by the below sub
+	$local_setup{TYPE_FILTERS}{Regexp} =
+		sub
+		{
+		my ($regexp) = @_ ;
+		return ('HASH', {REGEXP=> "$regexp"}, 'REGEXP') ;
+		} ;
+	}
+	
+return(TreeDumper($structure_to_dump, {TITLE => $title, %local_setup})) ;
 }
 
 #-------------------------------------------------------------------------------
+
 sub DumpTrees
 {
 my @trees            = grep {'ARRAY' eq ref $_} @_ ;
@@ -274,7 +294,7 @@ local $Devel::Size::warn = 0 if($level == 0) ;
 # filters
 #--------------------------
 my ($replacement_tree, $nodes_to_display) ;
-my ($filter_sub, $filter_argument) = GetFilter($setup, $level) ;
+my ($filter_sub, $filter_argument) = GetFilter($setup, $level, ref $tree) ;
 
 if(defined $filter_sub)
 	{
@@ -347,7 +367,7 @@ for (my $node_index = 0 ; $node_index < @nodes_to_display ; $node_index++)
 		$is_terminal_node = 1 ;
 		}
 		
-	$output .= RenderElementName
+	my $element_name_rendering = RenderElementName
 			(
 			  \@separator_data
 			  
@@ -365,9 +385,15 @@ for (my $node_index = 0 ; $node_index < @nodes_to_display ; $node_index++)
 		
 		push @{$setup->{__PATH_ELEMENTS}}, [$tree_type, $element_name, $tree] ;
 		
-		$output .= TreeDumper($element, $setup, $level + 1, $levels_left, $already_displayed_nodes)  ;
+		my  $sub_tree_dump = TreeDumper($element, $setup, $level + 1, $levels_left, $already_displayed_nodes)  ;
 		
+		$output .= $element_name_rendering .$sub_tree_dump ;
+			
 		pop @{$setup->{__PATH_ELEMENTS}} ;
+		}
+	else
+		{
+		$output .= $element_name_rendering ;
 		}
 	}
 	
@@ -380,13 +406,16 @@ return($output) ;
 
 sub GetFilter
 {
-my ($setup, $level) = @_ ;
+my ($setup, $level, $type) = @_ ;
 
-my $filter_sub    = $setup->{FILTER} ;
+my $filter_sub = $setup->{FILTER} ;
 
 # specific level filter has higher priority
 my $level_filters = $setup->{LEVEL_FILTERS} ;
 $filter_sub = $level_filters->{$level} if(defined $level_filters && exists $level_filters->{$level}) ;
+
+my $type_filters = $setup->{TYPE_FILTERS} ;
+$filter_sub = $type_filters->{$type} if(defined $type_filters && exists $type_filters->{$type}) ;
 
 unless ('CODE' eq ref $filter_sub || ! defined $filter_sub)
 	{
@@ -827,7 +856,15 @@ for(ref $element)
 			$default_element_rendering = $element_value = ' (no elements)' ;
 			}
 		
-		if(%{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+		if
+			(
+			%{$element} 
+			&& 
+				(
+				(($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+				|| $setup->{DISPLAY_NUMBER_OF_ELEMENTS}
+				)
+			)
 			{
 			my $number_of_elements = keys %{$element} ;
 			my $plural = $number_of_elements > 1 ? 's' : '' ;
@@ -866,7 +903,15 @@ for(ref $element)
 			$default_element_rendering = $element_value .= ' (no elements)' ;
 			}
 		
-		if(@{$element} && ($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+		if
+			(
+			@{$element} 
+			&& 
+				(
+				(($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+				|| $setup->{DISPLAY_NUMBER_OF_ELEMENTS}
+				)
+			)
 			{
 			my $plural = scalar(@{$element}) ? 's' : '' ;
 			my $elements = ' (' . @{$element} . ' element' . $plural . ')' ; 
@@ -1015,7 +1060,7 @@ my
 my $is_terminal_node = 0 ;
 my $element_value = '' ;
 
-my ($filter_sub, $filter_argument) = GetFilter($setup, $level) ;
+my ($filter_sub, $filter_argument) = GetFilter($setup, $level, ref $element) ;
 
 for(ref $element)
 	{
@@ -1225,7 +1270,7 @@ my $tree_type = ref $tree ;
 if('HASH' eq $tree_type)
 	{
 	return('HASH', undef, @$keys) if(defined $keys) ;
-	return('HASH', undef, sort keys %$tree) ;
+	return('HASH', undef, nsort keys %$tree) ;
 	}
 	
 if('ARRAY' eq $tree_type) 
@@ -1247,7 +1292,7 @@ if($tree =~ /=/)
 		{
 		/=HASH/ and do
 			{
-			@nodes_to_display = sort keys %$tree ;
+			@nodes_to_display = nsort keys %$tree ;
 			$tree_type = 'HASH' ;
 			last ;
 			} ;
@@ -1288,7 +1333,7 @@ my ($structure_to_dump, undef, undef, $keys) = @_ ;
 
 if('HASH' eq ref $structure_to_dump)
 	{
-	return('HASH', undef, sort keys %$structure_to_dump) unless defined $keys ;
+	return('HASH', undef, nsort keys %$structure_to_dump) unless defined $keys ;
 	
 	my %keys ;
 	for my $key (@$keys)
@@ -1303,7 +1348,7 @@ if('HASH' eq ref $structure_to_dump)
 			}
 		}
 		
-	return('HASH', undef, map{$keys{$_}} sort keys %keys) ;
+	return('HASH', undef, map{$keys{$_}} nsort keys %keys) ;
 	}
 
 return(Data::TreeDumper::DefaultNodesToDisplay($structure_to_dump)) ;
@@ -1723,8 +1768,8 @@ overrides are active within the current dump call only.
   
 =head2 $Data::TreeDumper::Displaycallerlocation
 
-This package variable is very usefull when you use B<Data::TreeDumper>, ie for debugging and don't 
-know where you called B<PrintTree> or B<DumpTree>. I displays the filename and line of call on STDOUT.
+This package variable is very usefull when you use B<Data::TreeDumper> and don't know where you called
+B<PrintTree> or B<DumpTree>, ie when debugging. It displays the filename and line of call on STDOUT.
 It can't also be set as an override,  DISPLAY_CALLER_LOCATION => 1.
 
 =head2 NO_PACKAGE_SETUP
@@ -1921,7 +1966,7 @@ the arguments when the filter is run (that happends for each node).
  sub CountNodes
  {
  my ($structure, $level, $path, $nodes_to_display, $setup, $counter) = @_ ;
- $$counter++ ; # remember to apss references if you want them to be changed by the filter
+ $$counter++ ; # remember to pass references if you want them to be changed by the filter
  
  return(DefaultNodesToDisplay($structure)) ;
  }
@@ -2177,6 +2222,12 @@ instead of the global filter.
 
 LEVEL_FILTERS => {1 => \&FilterForLevelOne, 5 => \&FilterForLevelFive ... } ;
 
+=head2 Type Filters
+
+You can define filters for specific types of references. This filter type has the highest priority.
+
+  DumpTree($s, 'type_filters_example', TYPE_FILTERS => { ARRAY => \&array_filter, WeirdObject => \&weird_filter}) ;
+
 =head2 Using filters as iterators
 
 You can iterate through your data structures and display data yourself, 
@@ -2245,6 +2296,12 @@ You can direct Data:TreeDumper to output ANSI codes instead of ASCII characters.
 will be much nicer but takes slightly longer (not significant for small data structures).
 
   USE_ASCII => 0 # will use ANSI codes instead
+
+=head2 Display number of elements
+
+  DISPLAY_NUMBER_OF_ELEMENTS => 1
+
+When set, the number of elements of every array and hash is displayed (not for objects based on hashes and arrays).
 
 =head2 Maximum depth of the dump
 
@@ -2664,7 +2721,7 @@ Khemir Nadim ibn Hamouda. <nadim@khemir.net>
 
 Thanks to Ed Avis for showing interest and pushing me to re-write the documentation.
 
-  Copyright (c) 2003-2005 Nadim Ibn Hamouda el Khemir. All rights
+  Copyright (c) 2003-2006 Nadim Ibn Hamouda el Khemir. All rights
   reserved.  This program is free software; you can redis-
   tribute it and/or modify it under the same terms as Perl
   itself.

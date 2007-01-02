@@ -1,11 +1,26 @@
 
+Dumper in debugger gives more information about subs
+	SUB = CODE(0x8417ed0)  [C15]
+
+	 'SUB' => CODE(0x848b3bc)
+	    -> &main::__ANON__[debug_test.pl:52] in debug_test.pl:49-52
+  
+Automatically generate DTD::OO
+
+What about a tie::TreeDumper and a tie::TreeDumper::Diff?
+
+Refactor DTD and use the type filters way of handling all types including HASHES, ARRAYS, ...
 
 Talk with Devel::Size module author to make size dumping faster
 
-hash key sorting is alphanumeric giving the list '1, 2, 21, 22, 3, ...)
-
-wrap error could be when the last line needs to be wrapped (that could be the only one line)
-
+#hash key sorting is alphanumeric giving the list '1, 2, 21, 22, 3, ...)
+	=> use Sort::Naturally
+	
+#wrap error 
+	test with: [nadim@nadim config]$ pbs -p parent.pl parent -save_config xyz -display_depend_start  -cw2 'bold yellow' -no_silent_override
+	test with try_it.pl
+	=> dump was extra incdented at caller
+	
 reference to reference is not dumped properly
 	my $sub = sub {} ;
 	my $h = {} ;
@@ -17,9 +32,23 @@ Add option name verification so we stop passing the wrong names!
 		=> soundex the closes
 			=> take the closest and display only a warning?
 
-Add the possibility to prune self not only children
+!Add the possibility to prune self not only children
+	why? 
+		objects should be able to remove themselves only their parents should be able to do that
+		
+	this is difficult as the name of self (including glyphs) is already
+		displayed when this is renderer. Eveni if self was to render its
+		own name, self prvious sibling name renderend would be wrong if
+		self decided it was not to be displayed. This means that glyph rendering
+		has to wait till all nodes are rendered.
+		
+	What do we do when a node removed itself and a we encounter a reference to the node?
 
-Add DISPLAY_NUMBER_OF_ELEMENTS
+# Add DISPLAY_NUMBER_OF_ELEMENTS
+
+#when dumping a node of type Regexp, print the regexp
+
+#make it possible to register a dumper per type
 
 #Accept non reference input
 

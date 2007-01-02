@@ -1,5 +1,10 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.32
+	ADDED: type filters
+	ADDED: display string representation of regex object
+	ADDED: 	DISPLAY_NUMBER_OF_ELEMENTS
+
 0.31
 	FIXED: DTD wouldn't iterate in terminal node (hashes, arrays without elements are terminal)
 	ADDED: filter argument ($setup->{FILTER_ARGUMENT})

@@ -32,6 +32,7 @@ package main ;
 
 $s = {
   'STDIN' => \*STDIN,
+  'REGEX' => qr/^this|that/,
   'RS' => \4,
   
   'A' => {
@@ -58,7 +59,8 @@ $s = {
         'c' => 42,
         'a' => {},
         'b' => sub { "DUMMY" },
-	'empty' => undef
+	'empty' => undef,
+	'z_array' => [1]
       }
     }
   },
