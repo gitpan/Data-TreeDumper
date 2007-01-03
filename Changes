@@ -1,5 +1,8 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.33
+	ADDED: Missing dependency to Sort::Naturally
+	
 0.32
 	ADDED: type filters
 	ADDED: display string representation of regex object
