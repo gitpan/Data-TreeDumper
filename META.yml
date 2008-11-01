@@ -1,15 +1,19 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Data-TreeDumper
-version:      0.33
-version_from: TreeDumper.pm
-installdirs:  site
-requires:
+--- #YAML:1.0
+name:                Data-TreeDumper
+version:             0.35
+abstract:            Improved replacement for Data::Dumper. Powerful filtering capability.
+license:             ~
+author:              
+    - Khemir Nadim ibn Hamouda. <nadim@khemir.net>
+generated_by:        ExtUtils::MakeMaker version 6.44
+distribution_type:   module
+requires:     
+    Check::ISA:                    0
     Class::ISA:                    0
     Devel::Size:                   0.58
     Sort::Naturally:               0
     Term::Size:                    0.2
     Text::Wrap:                    2001.0929
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.21
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3

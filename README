@@ -37,17 +37,9 @@ To install this module type the following:
    make test
    make install
 
-DEPENDENCIES
-
-This module requires these other modules and libraries:
-
-	Term::Size ;
-	Text::Wrap ;
-	Class::ISA ;
-	
 COPYRIGHT AND LICENCE
 
-  Copyright (c) 2003-2005 Nadim Ibn Hamouda el Khemir. All rights
+  Copyright (c) 2003-2008 Nadim Ibn Hamouda el Khemir. All rights
   reserved.  This program is free software; you can redis-
   tribute it and/or modify it under the same terms as Perl
   itself.

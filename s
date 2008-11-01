@@ -1,3 +1,4 @@
+package Vegetable ;
 
 package Potatoe ;
 use AutoLoader ;

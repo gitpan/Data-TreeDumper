@@ -7,6 +7,7 @@ $prerequisits =
 	Devel::Size => 0.58, 
 	Class::ISA  => 0,
 	Sort::Naturally => 0,
+	Check::ISA => 0,
 	} ;
 
 if($^O ne 'MSWin32')

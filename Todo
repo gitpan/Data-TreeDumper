@@ -1,10 +1,58 @@
 
+check Test Builder unoverload
+
+possibility to replace element by scalar
+
+ERROR:
+	reference to reference is not dumped properly
+	my $sub = sub {} ;
+	my $h = {} ;
+	my %tree1 = ( a=> \$h , A => \$sub ) ;
+
+Error:
+	$sections = bless( [], 'Pod::POM::Node::Content' );
+
+	use Data::TreeDumper ;
+	print DumpTree $sections, 'Sections:' ;
+
+	use Data::Dumper ;
+	print Dumper $sections ;
+
+
+add hash key filter helper module
+
+Check is Data::Visitor can be used as a base iterator
+
+separate glyph generation from data dumping (to be reuse in D::TD::Diff
+
+have sub modules handle the different types eg: D::TD::Type::Array; ..
+	Load them dynamically or at start if explicitely named
+	
+warp output after generation
+
+give an example for a type filter (example from pbs2 is cool)
+
+it should be possible to scope filter
+	a filter for a type sets more filters for the data below the type;
+	when the typed object is finished diplaying, revert to normal filters
+	
+iterator don't get to the leaves, document it
+
+Add a NoSort filter to dump Ixhashed variables
+
+Add more visual examples for the options
+
 Dumper in debugger gives more information about subs
 	SUB = CODE(0x8417ed0)  [C15]
 
 	 'SUB' => CODE(0x848b3bc)
 	    -> &main::__ANON__[debug_test.pl:52] in debug_test.pl:49-52
-  
+	    => uses Dumpvalue and debuger data!
+
+	this is because it can extract the data from DB::, maybe possible throug B::
+	
+	Also look at Self module
+	
 Automatically generate DTD::OO
 
 What about a tie::TreeDumper and a tie::TreeDumper::Diff?
@@ -12,6 +60,21 @@ What about a tie::TreeDumper and a tie::TreeDumper::Diff?
 Refactor DTD and use the type filters way of handling all types including HASHES, ARRAYS, ...
 
 Talk with Devel::Size module author to make size dumping faster
+
+Add option name verification so we stop passing the wrong names!
+	=> dump a list of the available names
+		=> soundex the closes
+			=> take the closest and display only a warning?
+
+#Reduce the amount of times a variable is accessed
+
+#GetElement is called twice per element this could be optiimized away
+
+#Display when sub levels are not displayed anymore because of MAX_LEVEL
+	=> use DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH
+	
+#Handle operator overloading. 
+#support Scalar::Cycle type
 
 #hash key sorting is alphanumeric giving the list '1, 2, 21, 22, 3, ...)
 	=> use Sort::Naturally
@@ -21,17 +84,6 @@ Talk with Devel::Size module author to make size dumping faster
 	test with try_it.pl
 	=> dump was extra incdented at caller
 	
-reference to reference is not dumped properly
-	my $sub = sub {} ;
-	my $h = {} ;
-	my %tree1 = ( a=> \$h , A => \$sub ) ;
-
-
-Add option name verification so we stop passing the wrong names!
-	=> dump a list of the available names
-		=> soundex the closes
-			=> take the closest and display only a warning?
-
 !Add the possibility to prune self not only children
 	why? 
 		objects should be able to remove themselves only their parents should be able to do that

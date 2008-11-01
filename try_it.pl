@@ -118,8 +118,12 @@ my $tree_dumper = new Data::TreeDumper::OO ;
 #~ $tree_dumper->UseAnsi(1) ;
 #~ $tree_dumper->UseAscii(0) ;
 #~ $tree_dumper->SetMaxDepth(2) ;
- 
-print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:",  DISPLAY_ROOT_ADDRESS => 1, DISPLAY_PERL_SIZE => 1) ;
+
+print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:",  DISPLAY_ROOT_ADDRESS => 1, DISPLAY_PERL_SIZE => 0, USE_ASCII => 0) ;
+
+use Data::Dumper;
+print Dumper \%tree ;
 
 #~ print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", INDENTATION => '  ', FILTER => \&Data::TreeDumper::HashKeysSorter) ;
+print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", MAX_DEPTH => 1, DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => 1) ;
 

@@ -5,16 +5,17 @@ use 5.006 ;
 use strict ;
 use warnings ;
 use Carp ;
+use Check::ISA ;
 
 require Exporter ;
-use AutoLoader qw(AUTOLOAD) ;
+#~ use AutoLoader qw(AUTOLOAD) ;
 
 our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(DumpTree PrintTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.33' ;
+our $VERSION = '0.35' ;
 
 my $WIN32_CONSOLE ;
 
@@ -267,7 +268,6 @@ my $level            = shift || 0 ;
 my $levels_left      = shift || [] ;
 
 my $tree_type = ref $tree ;
-
 confess "TreeDumper can only display objects passed by reference!\n" if('' eq  $tree_type) ;
 
 my $already_displayed_nodes = shift || {$tree => GetReferenceType($tree) . 'O', NEXT_INDEX => 1} ;
@@ -296,6 +296,8 @@ local $Devel::Size::warn = 0 if($level == 0) ;
 my ($replacement_tree, $nodes_to_display) ;
 my ($filter_sub, $filter_argument) = GetFilter($setup, $level, ref $tree) ;
 
+#TODO: no need to filter stuff that is already displayed
+
 if(defined $filter_sub)
 	{
 	($tree_type, $replacement_tree, @$nodes_to_display) 
@@ -316,7 +318,7 @@ my @nodes_to_display = @$nodes_to_display ;
 
 for my $node (@nodes_to_display)
 	{
-	if('ARRAY' eq ref $node)
+	if(ref $node eq  'ARRAY')
 		{
 		push @node_names, $node->[1] ;
 		$node = $node->[0] ; # Modify $nodes_to_display
@@ -367,17 +369,18 @@ for (my $node_index = 0 ; $node_index < @nodes_to_display ; $node_index++)
 		$is_terminal_node = 1 ;
 		}
 		
-	my $element_name_rendering = RenderElementName
-			(
-			  \@separator_data
-			  
-			, $tree, $tree_type, \@nodes_to_display, \@node_names, $node_index
-			
-			, $level
-			, $levels_left
-			, $already_displayed_nodes
-			, $setup
-			) ;
+	my $element_name_rendering = 
+		defined $tree
+			? RenderElementName
+				(
+				  \@separator_data
+				, $element, $element_name, $element_address, $element_id
+				, $level
+				, $levels_left
+				, $already_displayed_nodes
+				, $setup
+				)
+			: '' ;
 			
 	unless($is_terminal_node)
 		{
@@ -435,10 +438,10 @@ my ($tree, $tree_type, $nodes_to_display, $node_names, $node_index, $setup) = @_
 
 my ($element, $element_name, $element_address, $element_id) ;
 
-for($tree_type)
+for($tree)
 	{
 	# TODO, move this out of the loop with static table of functions
-	'HASH' eq $_ and do
+	($tree_type eq 'HASH' || obj($tree, 'HASH')) and do
 		{
 		$element = $tree->{$nodes_to_display->[$node_index]} ;
 		$element_address = "$element" if defined $element ;
@@ -457,7 +460,7 @@ for($tree_type)
 		last
 		} ;
 	
-	'ARRAY' eq $_ and do
+	($tree_type eq 'ARRAY' || obj($tree, 'ARRAY')) and do
 		{
 		#~ # debug while writting Diff module
 		#~ unless(defined $nodes_to_display->[$node_index])
@@ -475,7 +478,7 @@ for($tree_type)
 		last ;
 		} ;
 		
-	'REF' eq $_ and do
+	($tree_type eq 'REF' || obj($tree, 'REF')) and do
 		{
 		$element = $$tree ;
 		$element_address = "$element" if defined $element ;
@@ -484,7 +487,7 @@ for($tree_type)
 		last ;
 		} ;
 		
-	'CODE' eq $_ and do
+	($tree_type eq 'CODE' || obj($tree, 'CODE')) and do
 		{
 		$element = $tree ;
 		$element_address = "$element" if defined $element ;
@@ -493,7 +496,7 @@ for($tree_type)
 		last ;
 		} ;
 		
-	('SCALAR' eq $_) and do
+	($tree_type eq 'SCALAR' || obj($tree, 'SCALAR')) and do
 	#~ ('SCALAR' eq $_ or 'GLOB' eq $_) and do
 		{
 		$element = $$tree ;
@@ -515,7 +518,7 @@ my
 (
   $separator_data
   
-, $tree, $tree_type, $nodes_to_display, $node_names, $node_index
+, $element, $element_name, $element_address, $element_id
 
 , $level
 , $levels_left
@@ -523,13 +526,6 @@ my
 
 , $setup
 ) = @_ ;
-
-return('') unless defined $tree  ;
-
-my ($opening_bracket, $closing_bracket)  = GetBrackets($setup, $tree_type) ;
-
-my ($element, $element_name, $element_address, $element_id) 
-	= GetElement($tree, $tree_type, $nodes_to_display, $node_names, $node_index, $setup);
 
 my @rendering_elements = GetElementInfo
 			(
@@ -733,25 +729,32 @@ else
 		}
 	else
 		{
-		my ($columns, $rows) ;
-		if($^O ne 'MSWin32')
+		my ($columns, $rows) = ('', '') ;
+		
+		if(defined $setup->{WRAP_WIDTH})
 			{
-			eval "(\$columns, \$rows) = Term::Size::chars *STDOUT{IO} ;" ;
+			$columns = $setup->{WRAP_WIDTH}  ;
 			}
 		else
 			{
-			($columns, $rows) = $WIN32_CONSOLE->Size();
+			if(defined $^O)
+				{
+				if($^O ne 'MSWin32')
+					{
+					eval "(\$columns, \$rows) = Term::Size::chars *STDOUT{IO} ;" ;
+					}
+				else
+					{
+					($columns, $rows) = $WIN32_CONSOLE->Size();
+					}
+				}
+				
+			if($columns eq '')
+				{
+				$columns = $setup->{VIRTUAL_WIDTH}  ;
+				}
 			}
-		
-		if($columns eq '')
-			{
-			$columns = $setup->{VIRTUAL_WIDTH}  ;
-			}
-		else
-			{
-			$columns = $setup->{WRAP_WIDTH} if defined $setup->{WRAP_WIDTH} ;
-			}
-		
+			
 		local $Text::Wrap::columns  = $columns ;
 		local $Text::Wrap::unexpand = 0 ;
 		
@@ -971,27 +974,54 @@ for(ref $element)
 		
 	# DEFAULT, an object.
 	$tag = 'O' ;
-
-	if($element =~ /=HASH/ )
+	my $object_elements = '' ;
+	
+	if( obj($element, 'HASH') )
 		{
 		$tag = 'OH' ;
+		if
+			(
+			%{$element} 
+			&& 
+				(
+				(($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+				|| $setup->{DISPLAY_NUMBER_OF_ELEMENTS}
+				)
+			)
+			{
+			my $number_of_elements = keys %{$element} ;
+			my $plural = $number_of_elements > 1 ? 's' : '' ;
+			$object_elements = ' (' . $number_of_elements . ' element' . $plural . ')' ; 
+			}
 		}
-	elsif($element =~ /=ARRAY/)
+	elsif(obj($element, 'ARRAY'))
 		{
 		$tag = 'OA' ;
+		if
+			(
+			@{$element} 
+			&& 
+				(
+				(($setup->{MAX_DEPTH} == $level + 1) && $setup->{DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH})
+				|| $setup->{DISPLAY_NUMBER_OF_ELEMENTS}
+				)
+			)
+			{
+			my $plural = scalar(@{$element}) ? 's' : '' ;
+			$object_elements = ' (' . @{$element} . ' element' . $plural . ')' ; 
+			}
 		}
-	elsif($element =~ /=GLOB/)
+	elsif(obj($element, 'GLOB'))
 		{
 		$tag = 'OG' ;
 		}
-	elsif($element =~ /=SCALAR/)
+	elsif(obj($element, 'SCALAR'))
 		{
 		$tag = 'OS' ;
 		} 
 
 	$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
 	
-	#check if the object is empty and display that state if NO_NO_ELEMENT isn't set
 	($is_terminal_node, my $element_value) 
 		= IsTerminalNode
 			(
@@ -1006,6 +1036,8 @@ for(ref $element)
 		$element_value .= GetElementTieAndClass($setup, $element) ;
 		$default_element_rendering = " = $element_value" ;
 		}
+		
+	$default_element_rendering .= $object_elements ;
 	}
 
 # address
@@ -1045,6 +1077,7 @@ return
 	, $address_link
 	) ;
 }
+
 #----------------------------------------------------------------------
 
 sub IsTerminalNode
@@ -1142,7 +1175,7 @@ for(ref $element)
 	#check if the object is empty and display that state if NO_NO_ELEMENT isn't set
 	for($element)
 		{
-		/=HASH/ and do
+		obj($_, 'HASH') and do
 			{
 			unless(%$element)
 				{
@@ -1156,7 +1189,7 @@ for(ref $element)
 			last ;
 			} ;
 		
-		/=ARRAY/ and do
+		obj($_, 'ARRAY/') and do
 			{
 			unless(@$element)
 				{
@@ -1186,22 +1219,22 @@ my $element_type = '' ;
 
 if($setup->{DISPLAY_TIE})
 	{
-	if("$element" =~ '=HASH' && (my $tie_hash = tied %$element))
+	if(obj($element, 'HASH') && (my $tie_hash = tied %$element))
 		{
 		$tie_hash =~ s/=.*$// ;
 		$element_type .= " (tied to '$tie_hash' [H])"
 		}
-	elsif("$element" =~ '=ARRAY' && (my $tie_array = tied @$element))
+	elsif(obj($element, 'ARRAY') && (my $tie_array = tied @$element))
 		{
 		$tie_array =~ s/=.*$// ;
 		$element_type .= " (tied to '$tie_array' [A])"
 		}
-	elsif("$element" =~ '=SCALAR' && (my $tie_scalar = tied $$element))
+	elsif(obj($element, 'SCALAR') && (my $tie_scalar = tied $$element))
 		{
 		$tie_scalar =~ s/=.*$// ;
 		$element_type .= " (tied to '$tie_scalar' [RS])"
 		}
-	elsif("$element" =~ '=GLOB' && (my $tie_glob = tied *$element))
+	elsif(obj($element, 'GLOB') && (my $tie_glob = tied *$element))
 		{
 		$tie_glob =~ s/=.*$// ;
 		$element_type .= " (tied to '$tie_glob' [G])"
@@ -1286,40 +1319,37 @@ return('CODE',   undef, (0))  if('CODE'    eq $tree_type) ;
 my @nodes_to_display ;
 undef $tree_type ;
 
-if($tree =~ /=/)
+for($tree)
 	{
-	for($tree)
+	obj($_, 'HASH') and do
 		{
-		/=HASH/ and do
-			{
-			@nodes_to_display = nsort keys %$tree ;
-			$tree_type = 'HASH' ;
-			last ;
-			} ;
+		@nodes_to_display = nsort keys %$tree ;
+		$tree_type = 'HASH' ;
+		last ;
+		} ;
+	
+	obj($_, 'ARRAY') and do
+		{
+		@nodes_to_display = (0 .. @$tree - 1) ;
+		$tree_type = 'ARRAY' ;
+		last ;
+		} ;
 		
-		/=ARRAY/ and do
-			{
-			@nodes_to_display = (0 .. @$tree - 1) ;
-			$tree_type = 'ARRAY' ;
-			last ;
-			} ;
-			
-		/=GLOB/ and do
-			{
-			@nodes_to_display = (0) ;
-			$tree_type = 'REF' ;
-			last ;
-			} ;
-			
-		/=SCALAR/ and do
-			{
-			@nodes_to_display = (0) ;
-			$tree_type = 'REF' ;
-			last ;
-			} ;
-			
-		warn "TreeDumper: Unsupported underlying type for $tree.\n" ;
-		}
+	obj($_, 'GLOB') and do
+		{
+		@nodes_to_display = (0) ;
+		$tree_type = 'REF' ;
+		last ;
+		} ;
+		
+	obj($_, 'SCALAR') and do
+		{
+		@nodes_to_display = (0) ;
+		$tree_type = 'REF' ;
+		last ;
+		} ;
+		
+	warn "TreeDumper: Unsupported underlying type for $tree.\n" ;
 	}
 
 return($tree_type, undef, @nodes_to_display) ;
@@ -1405,7 +1435,7 @@ if(exists $types{$reference})
 	}
 else
 	{
-	my $tag = 'O' ;
+	my $tag = 'O?' ;
 
 	if($element =~ /=HASH/ )
 		{
@@ -1865,7 +1895,7 @@ Setting this option will show the perl-address of the dumped data.
 =head2 REPLACEMENT_LIST
 
 Scalars may contain non printable characters that you rather not see in a dump. One of the
-most common is "\r" embedded in text string from dos files. B<PBS>, by default, replaces "\n" by
+most common is "\r" embedded in text string from dos files. B<Data::TreeDumper>, by default, replaces "\n" by
 '[\n]' and "\r" by '[\r]'. You can set REPLACEMENT_LIST to an array ref containing elements which
 are themselves array references. The first element is the character(s) to match and the second is
 the replacement.
@@ -1898,7 +1928,7 @@ the scalar values.
   
 =head2 NO_NO_ELEMENTS
 
-If this option is set, PBS will not add 'no elements' to empty hashes and arrays
+If this option is set, B<Data::TreeDumper> will not add 'no elements' to empty hashes and arrays
 
 =head2 NO_OUTPUT
 
@@ -2226,7 +2256,19 @@ LEVEL_FILTERS => {1 => \&FilterForLevelOne, 5 => \&FilterForLevelFive ... } ;
 
 You can define filters for specific types of references. This filter type has the highest priority.
 
-  DumpTree($s, 'type_filters_example', TYPE_FILTERS => { ARRAY => \&array_filter, WeirdObject => \&weird_filter}) ;
+here's a very simple filter that will display the specified keys for the types
+
+	print DumpTree
+		(
+		$data, 
+		'title',
+		TYPE_FILTERS => 
+			{
+			'Config::Hierarchical' => sub {'HASH', undef, qw(CATEGORIES) },
+			'PBS2::Node' => sub {'HASH', undef, qw(CONFIG DEPENDENCIES MATCH) },,
+			}
+		) ;
+
 
 =head2 Using filters as iterators
 

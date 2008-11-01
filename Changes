@@ -1,5 +1,18 @@
 Revision history for Perl extension Data::TreeDumper.
 
+0.35
+    FIXED: DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH works for objects based on hashes and array
+    CHANGED: refactored and remove un-necessary calls
+    FIXED: RT #29380
+
+commit 3662b21dd8406703714971ee96287cc9367baa8f
+Author: nadim khemir <nadim@naquadim.(none)>
+Date:   Sat Nov 1 12:59:36 2008 +0100
+
+    FIXED: onject overloading "" are displayed. Tested with Perl::Critic object	
+0.34
+	FIXED: check if $^0 is defined before using it to avoid warning
+	
 0.33
 	ADDED: Missing dependency to Sort::Naturally
 	
