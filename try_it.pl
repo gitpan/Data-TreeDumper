@@ -124,6 +124,5 @@ print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:",  DISPLAY_ROOT_
 use Data::Dumper;
 print Dumper \%tree ;
 
-#~ print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", INDENTATION => '  ', FILTER => \&Data::TreeDumper::HashKeysSorter) ;
 print $tree_dumper->Dump(\%tree, "Data:TreeDumper dump example:", MAX_DEPTH => 1, DISPLAY_NUMBER_OF_ELEMENTS_OVER_MAX_DEPTH => 1) ;
 

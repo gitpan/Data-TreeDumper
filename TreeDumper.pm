@@ -8,14 +8,13 @@ use Carp ;
 use Check::ISA ;
 
 require Exporter ;
-#~ use AutoLoader qw(AUTOLOAD) ;
 
 our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(DumpTree PrintTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.35' ;
+our $VERSION = '0.37' ;
 
 my $WIN32_CONSOLE ;
 
@@ -293,28 +292,25 @@ local $Devel::Size::warn = 0 if($level == 0) ;
 #--------------------------
 # filters
 #--------------------------
-my ($replacement_tree, $nodes_to_display) ;
 my ($filter_sub, $filter_argument) = GetFilter($setup, $level, ref $tree) ;
 
-#TODO: no need to filter stuff that is already displayed
-
+my ($replacement_tree, @nodes_to_display) ;
 if(defined $filter_sub)
 	{
-	($tree_type, $replacement_tree, @$nodes_to_display) 
-		= $filter_sub->($tree, $level, $setup->{__DATA_PATH}, $nodes_to_display, $setup, $filter_argument) ;
+	($tree_type, $replacement_tree, @nodes_to_display) 
+		= $filter_sub->($tree, $level, $setup->{__DATA_PATH}, undef, $setup, $filter_argument) ;
 	
 	$tree = $replacement_tree if(defined $replacement_tree) ;
 	}
 else
 	{
-	($tree_type, undef, @$nodes_to_display) = DefaultNodesToDisplay($tree) ;
+	($tree_type, undef, @nodes_to_display) = DefaultNodesToDisplay($tree) ;
 	}
 
 return('') unless defined $tree_type ; #easiest way to prune in a filter is to return undef as type
 
 # filters can change the name of the nodes by passing an array ref
 my @node_names ;
-my @nodes_to_display = @$nodes_to_display ;
 
 for my $node (@nodes_to_display)
 	{
@@ -482,7 +478,45 @@ for($tree)
 		{
 		$element = $$tree ;
 		$element_address = "$element" if defined $element ;
-		$element_name = "$tree" ;
+		
+		my $sub_type = '?' ;
+		for($element)
+			{
+			my $element_type = ref $element;
+			
+			($element_type eq '' || obj($element, 'HASH')) and do
+				{
+				$sub_type = 'scalar' ;
+				last ;
+				} ;
+			($element_type eq 'HASH' || obj($element, 'HASH')) and do
+				{
+				$sub_type = 'HASH' ;
+				last ;
+				} ;
+			($element_type eq 'ARRAY' || obj($element, 'ARRAY')) and do
+				{
+				$sub_type = 'ARRAY' ;
+				last ;
+				} ;
+			($element_type eq 'REF' || obj($element, 'REF')) and do
+				{
+				$sub_type = 'REF' ;
+				last ;
+				} ;
+			($element_type eq 'CODE' || obj($element, 'CODE')) and do
+				{
+				$sub_type = 'CODE' ;
+				last ;
+				} ;
+			($element_type eq 'SCALAR' || obj($element, 'SCALAR')) and do
+				{
+				$sub_type = 'SCALAR REF' ;
+				last ;
+				} ;
+			}
+		
+		$element_name = "$tree to $sub_type" ;
 		$element_id = $tree ;
 		last ;
 		} ;
@@ -968,7 +1002,7 @@ for(ref $element)
 		{
 		$is_terminal_node = 0 ;
 		$tag = 'R' ;
-		$perl_address = "$element" if($setup->{DISPLAY_PERL_ADDRESS}) ;
+		$perl_address = $element if($setup->{DISPLAY_PERL_ADDRESS}) ;
 		last ;
 		} ;
 		
@@ -1117,7 +1151,7 @@ for(ref $element)
 				
 				local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}\{$element_name\}" ;
 				(undef, undef, @children_nodes_to_display) 
-					= $filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, \@children_nodes_to_display, $setup, $filter_argument) ;
+					= $filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, undef, $setup, $filter_argument) ;
 				
 				$is_terminal_node++ unless @children_nodes_to_display ;
 				}
@@ -1139,7 +1173,7 @@ for(ref $element)
 				
 				local $setup->{__DATA_PATH} = "$setup->{__DATA_PATH}\[$element_name\]" ;
 				(undef, undef, @children_nodes_to_display)
-					= $filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, \@children_nodes_to_display, $setup, $filter_argument) ;
+					= $filter_sub->($element, $level + 1, $setup->{__DATA_PATH}, undef, $setup, $filter_argument) ;
 				
 				$is_terminal_node++ unless @children_nodes_to_display ;
 				}
@@ -1357,45 +1391,13 @@ return($tree_type, undef, @nodes_to_display) ;
 
 #-------------------------------------------------------------------------------
 
-sub HashKeysSorter
-{
-my ($structure_to_dump, undef, undef, $keys) = @_ ;
-
-if('HASH' eq ref $structure_to_dump)
-	{
-	return('HASH', undef, nsort keys %$structure_to_dump) unless defined $keys ;
-	
-	my %keys ;
-	for my $key (@$keys)
-		{
-		if('ARRAY' eq ref $key)
-			{
-			$keys{$key->[0]} = $key ;
-			}
-		else
-			{
-			$keys{$key} = $key ;
-			}
-		}
-		
-	return('HASH', undef, map{$keys{$_}} nsort keys %keys) ;
-	}
-
-return(Data::TreeDumper::DefaultNodesToDisplay($structure_to_dump)) ;
-}
-
-#----------------------------------------------------------------------
-
 sub CreateChainingFilter
 {
 my @filters = @_ ;
 
 return sub
 	{
-	my $tree = shift ;
-	my $level = shift ;
-	my $path = shift ;
-	my $keys = shift ;
+	my ($tree, $level, $path, $keys) = @_ ;
 	
 	my ($tree_type, $replacement_tree);
 	
@@ -1461,6 +1463,7 @@ else
 } # make %types private
 
 #-------------------------------------------------------------------------------
+
 sub GetLevelText
 {
 my ($element, $level, $setup) = @_ ;
@@ -1594,52 +1597,6 @@ return
 	, $subsequent_separator
 	, $separator_size
 	) ;
-}
-
-#-------------------------------------------------------------------------------
-
-sub GetCallerStack
-{
-my $level_to_dump = shift || 1_000_000;
-my $current_level = 2 ; # skip this function 
-
-$level_to_dump += $current_level ; #
-
-my @stack_dump ;
-
-while ($current_level < $level_to_dump) 
-	{
-	my  ($package, $filename, $line, $subroutine, $has_args, $wantarray,
-	    $evaltext, $is_require, $hints, $bitmask) = eval " package DB ; caller($current_level) ;" ;
-	    
-	last unless defined $package;
-	
-	my %stack ;
-	$stack{$subroutine}{EVAL}            = 'yes'       if($subroutine eq '(eval)') ;
-	$stack{$subroutine}{EVAL}            = $evaltext   if defined $evaltext ;
-	$stack{$subroutine}{ARGS}            = [@DB::args] if($has_args) ;
-	$stack{$subroutine}{'REQUIRE-USE'}   = 'yes'       if $is_require ;
-	$stack{$subroutine}{CONTEXT}         = defined $wantarray ? $wantarray ? 'list' : 'scalar' : 'void' ;
-	$stack{$subroutine}{CALLERS_PACKAGE} = $package ;
-	$stack{$subroutine}{AT}              = "$filename:$line" ;
-	
-	unshift @stack_dump, \%stack ;
-	$current_level++;
-	}
-
-# usage example
-#~ print DumpTree
-	#~ (
-	  #~ (GetCallerStack())->[4]
-	#~ , 'Stack dump:'
-	#~ , DISPLAY_ADDRESS => 1
-	#~ , MAX_DEPTH => 5
-	#~ , DISPLAY_OBJECT_TYPE => 1
-	#~ , USE_ASCII => 1
-	#~ , QUOTE_VALUES => 1
-	#~ ) ;
-
-return(\@stack_dump);
 }
 
 #-------------------------------------------------------------------------------
@@ -1942,7 +1899,6 @@ display the data yourself, manipulate the data structure, or do a search
 Data::TreeDumper can sort the tree nodes with a user defined subroutine. By default, hash keys are sorted.
 
   FILTER => \&ReverseSort
-  FILTER => \&Data::TreeDumper::HashKeysSorter
   FILTER_ARGUMENT => ['your', 'arguments']
 
 The filter routine is passed these arguments:
@@ -1955,8 +1911,7 @@ The filter routine is passed these arguments:
 
 =item 3 - the path to the reference from the start of the dump.
 
-=item 4 - an array reference containing the keys to be displayed (see filter chaining below) last argument can be undefined and can then
-be safely ignored.
+=item 4 - an array reference containing the keys to be displayed (see L<Filter chaining>)
 
 =item 5 - the dumpers setup
 

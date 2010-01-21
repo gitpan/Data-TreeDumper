@@ -52,7 +52,6 @@ print Dumper($s) ;
 
 $Data::TreeDumper::Useascii     = 0 ;
 $Data::TreeDumper::Maxdepth     = 2 ;
-$Data::TreeDumper::Filter       =  \&Data::TreeDumper::HashKeysSorter ;
 $Data::TreeDumper::Virtualwidth =  80 ;
 
 print Data::TreeDumper::DumpTree($s, "Using package data") ;
@@ -66,7 +65,6 @@ my $dumper = new Data::TreeDumper::OO() ;
 $dumper->UseAnsi(1) ;
 $dumper->SetMaxDepth(2) ;
 $dumper->SetVirtualWidth(80) ;
-$dumper->SetFilter(\&Data::TreeDumper::HashKeysSorter) ;
 
 print $dumper->Dump($s, "Using OO interface") ;
  

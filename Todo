@@ -1,25 +1,26 @@
+[12:03] <kent\n> nadim: $("ul").click(function(){ $(this).find("li").show() });  # theres a start
 
+
+the filter is called three times, it could be cached
+	search for $filter_sub->
+	
+move all the examples to documentation and tests
+
+DTD::Diff
+	show only diff + some (settable) context
+	DHTML rendered that synchronizes collapse between trees
+
+color by type
+sort by type
+#filter by type done in D::TD::Utils
+
+DHTML
+	colorize 
+	let user set links (? in a filter specific to the dhtml renderer ?)
+	
 check Test Builder unoverload
 
 possibility to replace element by scalar
-
-ERROR:
-	reference to reference is not dumped properly
-	my $sub = sub {} ;
-	my $h = {} ;
-	my %tree1 = ( a=> \$h , A => \$sub ) ;
-
-Error:
-	$sections = bless( [], 'Pod::POM::Node::Content' );
-
-	use Data::TreeDumper ;
-	print DumpTree $sections, 'Sections:' ;
-
-	use Data::Dumper ;
-	print Dumper $sections ;
-
-
-add hash key filter helper module
 
 Check is Data::Visitor can be used as a base iterator
 
@@ -27,6 +28,8 @@ separate glyph generation from data dumping (to be reuse in D::TD::Diff
 
 have sub modules handle the different types eg: D::TD::Type::Array; ..
 	Load them dynamically or at start if explicitely named
+		let's user define his own module
+	Refactor DTD and use the type filters way of handling all types including HASHES, ARRAYS, ...
 	
 warp output after generation
 
@@ -37,8 +40,6 @@ it should be possible to scope filter
 	when the typed object is finished diplaying, revert to normal filters
 	
 iterator don't get to the leaves, document it
-
-Add a NoSort filter to dump Ixhashed variables
 
 Add more visual examples for the options
 
@@ -57,14 +58,17 @@ Automatically generate DTD::OO
 
 What about a tie::TreeDumper and a tie::TreeDumper::Diff?
 
-Refactor DTD and use the type filters way of handling all types including HASHES, ARRAYS, ...
-
 Talk with Devel::Size module author to make size dumping faster
 
 Add option name verification so we stop passing the wrong names!
+	=> optional
 	=> dump a list of the available names
 		=> soundex the closes
 			=> take the closest and display only a warning?
+
+------------------------------
+# below are done -
+------------------------------
 
 #Reduce the amount of times a variable is accessed
 

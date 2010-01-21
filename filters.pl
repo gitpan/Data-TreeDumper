@@ -355,12 +355,6 @@ return(Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
 print DumpTree($s, 'AddStar', FILTER => \&AddStar) ;
 print $dump_separator ;
 
-print DumpTree($s, 'HashKeysSorter+ AddStar', FILTER => CreateChainingFilter(\&Data::TreeDumper::HashKeysSorter, \&AddStar)) ;
-print $dump_separator ;
-
-print DumpTree($s, 'AddStar + HashKeysSorter', FILTER => CreateChainingFilter(\&AddStar, \&Data::TreeDumper::HashKeysSorter)) ;
-print $dump_separator ;
-
 print DumpTree($s, 'RemoveA', FILTER => \&RemoveA) ;
 print $dump_separator ;
 
