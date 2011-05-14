@@ -14,7 +14,7 @@ our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(DumpTree PrintTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.38' ;
+our $VERSION = '0.39' ;
 
 my $WIN32_CONSOLE ;
 
@@ -1286,9 +1286,7 @@ for(ref $element)
 	if($setup->{DISPLAY_OBJECT_TYPE})
 		{
 		my $class = ref($element) ;
-		my $has_autoload ;
-		eval "\$has_autoload = *'${class}'::AUTOLOAD{CODE} ;" ;
-		$has_autoload = $has_autoload ? '[AL]' : '' ;
+		my $has_autoloadd = $class->can("AUTOLOAD") ? '[AL]' : '' ;
 		
 		$element_type .= " blessed in '$has_autoload$class'" ;
 		

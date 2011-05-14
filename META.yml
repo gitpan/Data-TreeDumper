@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Data-TreeDumper
-version:            0.38
+version:            0.39
 abstract:           Improved replacement for Data::Dumper. Powerful filtering capability.
 author:
     - Khemir Nadim ibn Hamouda. <nadim@khemir.net>
