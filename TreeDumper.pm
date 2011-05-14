@@ -14,7 +14,7 @@ our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{$EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(DumpTree PrintTree DumpTrees CreateChainingFilter);
 
-our $VERSION = '0.37' ;
+our $VERSION = '0.38' ;
 
 my $WIN32_CONSOLE ;
 
@@ -1287,7 +1287,7 @@ for(ref $element)
 		{
 		my $class = ref($element) ;
 		my $has_autoload ;
-		eval "\$has_autoload = *${class}::AUTOLOAD{CODE} ;" ;
+		eval "\$has_autoload = *'${class}'::AUTOLOAD{CODE} ;" ;
 		$has_autoload = $has_autoload ? '[AL]' : '' ;
 		
 		$element_type .= " blessed in '$has_autoload$class'" ;
@@ -2454,6 +2454,7 @@ B<Data::TreeDumper> on this track. Check B<Data::TreeDumper::Renderer::DHTML>.
 to setup the document (ex:: html header).
 
 =over 4
+
 my ($title, $type_address, $element, $size, $perl_address, $setup) = @_ ;
 
 =item 1 $title
@@ -2718,7 +2719,7 @@ Khemir Nadim ibn Hamouda. <nadim@khemir.net>
 
 Thanks to Ed Avis for showing interest and pushing me to re-write the documentation.
 
-  Copyright (c) 2003-2006 Nadim Ibn Hamouda el Khemir. All rights
+  Copyright (c) 2003-2010 Nadim Ibn Hamouda el Khemir. All rights
   reserved.  This program is free software; you can redis-
   tribute it and/or modify it under the same terms as Perl
   itself.

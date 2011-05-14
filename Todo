@@ -1,5 +1,10 @@
 [12:03] <kent\n> nadim: $("ul").click(function(){ $(this).find("li").show() });  # theres a start
 
+options to show addresses and links only when references exist
+	needs two passes
+	could filter the output with a s/// to avoid two passes
+
+DTD::Flare instead for jquery
 
 the filter is called three times, it could be cached
 	search for $filter_sub->
@@ -9,6 +14,8 @@ move all the examples to documentation and tests
 DTD::Diff
 	show only diff + some (settable) context
 	DHTML rendered that synchronizes collapse between trees
+
+Add example usind Data::DPath
 
 color by type
 sort by type

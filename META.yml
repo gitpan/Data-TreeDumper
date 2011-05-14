@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Data-TreeDumper
-version:            0.37
+version:            0.38
 abstract:           Improved replacement for Data::Dumper. Powerful filtering capability.
 author:
     - Khemir Nadim ibn Hamouda. <nadim@khemir.net>
@@ -21,7 +21,7 @@ no_index:
     directory:
         - t
         - inc
-generated_by:       ExtUtils::MakeMaker version 6.54
+generated_by:       ExtUtils::MakeMaker version 6.56
 meta-spec:
     url:      http://module-build.sourceforge.net/META-spec-v1.4.html
     version:  1.4
